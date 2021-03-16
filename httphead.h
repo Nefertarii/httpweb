@@ -112,7 +112,7 @@ std::string http_process(std::string requesttypes,std::string readbuf) {
     }
     return responfile;
 }
-std::string file_porcess(std::string filename) {
+std::string file_process(std::string filename) {
     int index = filename.length(); 
     while(1) {
         if(filename[index]=='.')
