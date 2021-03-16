@@ -23,8 +23,25 @@ linux下用epoll和posix实现的小项目
 						
 				
 
+readfile.h
+-----------
+	readfile函数  用于读取服务端的本地文件
+	
+httphead.h
+-----------
+	GMTime函数 用于在需要发送的http头中获得当前 GMT时间(格林威治标准时间)	
+	responehead_html函数 用于最后一步 处理已经获得的数据(发送的文件长度 时间...) 整合于list<string>中并返回
+	http_process函数 用于在请求中获得请求类型以及需要的文件/数据名
+	file_process函数 在获得的文件名中分析出文件类型并返回以供http头所用
+
+servhead.h
+----------
+	readfile函数 在本地读取所需的文件 并按类型读取至list<string>中并返回
+	
+server.h
+--------
+	start_server函数 启动服务器 并控制服务器流程的主要函数
 
 
-
-
+所遇到的问题：
 2021-3-17 目前在处理png图片时有问题:fstream读取不到完整的数据 很多方法都试用过了 暂时不清楚什么原因
