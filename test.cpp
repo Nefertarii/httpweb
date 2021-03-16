@@ -8,31 +8,42 @@
 #include <list>
 #define MAX_BUF 1024
 
-std::string file_porcess(std::string filename) {
-    int index = filename.length(); 
-    while(1) {
-        if(filename[index]=='.')
-            break;
-        index--;
-    }
-    std::string suffix(filename, index, filename.length());
-    if(suffix==".html")
-        return "text/html";
-    if(suffix==".data")
-        return "application/json";
-    if(suffix==".css")
-        return "text/css";
-    if(suffix==".js")
-        return "text/javascript";
-    if(suffix==".png")
-        return "image/png";
-    else
-        return "text/plain";
-}
+std::list<std::string> readfile(std::string name, std::string filetype, int &filesize)
+{
+    std::list<std::string> recv;
+    std::string filename, line;
+    std::ifstream file;
 
+    filename = name;
+    std::cout << filename;
+
+    if (filetype == "image/png")
+    {
+        if(file) {
+            file.open(filename, std::ifstream::binary);
+            file.seekg(0, file.end);
+            filesize = file.tellg();
+            file.seekg(0, file.beg);
+            char *buf = new char[filesize];
+            file.read(buf, filesize);
+            if(file)
+                std::cout << "\nis end success." << std::endl;
+            else
+                std::cout << "only read" << file.gcount() << std::endl;
+            recv.push_back(buf);
+            file.close();
+            return recv;
+        }
+    }
+    return recv;
+}
 using namespace std;
 int main(int argc, const char **argv)
 {
-    std::string file = file_porcess("test.js");
-    cout << file << endl;
+
+    int filesize = 0;
+    std::list<std::string> file = readfile("test.png", "image/png", filesize);
+    cout << " filesize:" << filesize << endl;
+    for (auto i : file)
+        cout << i << endl;
 }

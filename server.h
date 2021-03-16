@@ -45,22 +45,18 @@ void start_server() {
                     requesttypes = "GET";
                     filename = http_process(requesttypes, readbuf);
                     filetype = file_process(filename);
-                    event_now.data.fd = connectfd;
-                    event_now.events = EPOLLOUT | EPOLLET;
                     epoll_ctl(epollfd, EPOLL_CTL_MOD, connectfd, &event_now);
                     std::cout << "Read from " << inet_ntoa(cliaddr.sin_addr) << std::endl;
-                    std::cout << "Request types:" << requesttypes
-                              << "\rneed file:" << filename
-                              << "\rfile type:" << filetype << std::endl;
+                    event_now.data.fd = connectfd;
+                    event_now.events = EPOLLOUT | EPOLLET;
                 }
                 else if (readbuf.find_first_of("POST") == 0) {
                     requesttypes = "POST";
                     filename = http_process(requesttypes, readbuf) ;
-                    event_now.data.fd = connectfd;
-                    event_now.events = EPOLLOUT | EPOLLET;
                     epoll_ctl(epollfd, EPOLL_CTL_MOD, connectfd, &event_now);
                     std::cout << "Read from " << inet_ntoa(cliaddr.sin_addr) << std::endl;
-                    std::cout << "Request types:" << requesttypes << "   need file:" << filename << std::endl;
+                    event_now.data.fd = connectfd;
+                    event_now.events = EPOLLOUT | EPOLLET;
                 }
                 
             }
@@ -70,13 +66,17 @@ void start_server() {
             else if (events[i].events & EPOLLOUT) { //have date need      send
                 std::cout << "Send..." << std::endl;
                 connectfd = events[i].data.fd;
-                int filesize = 0;
-                std::list<std::string> file = readfile(filename, filesize);
+                int filesize = 0; //filesize get in function "readfile"
+                std::list<std::string> file = readfile(filename, filetype, filesize);
                 if(filesize==0)
                     Write(connectfd, "HTTP/1.1 404 Not_Found\r\n\r\n");
                 else {
+
                     send_httphead(connectfd, filesize, filetype);
                     send_file(file, filetype, connectfd);
+                    event_now.data.fd = connectfd;
+                    event_now.events = EPOLLIN | EPOLLET;
+                    epoll_ctl(epollfd, EPOLL_CTL_MOD, connectfd, &event_now);
                 }
                 event_now.data.fd = connectfd;
                 event_now.events = EPOLLIN | EPOLLET;

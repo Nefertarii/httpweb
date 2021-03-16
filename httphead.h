@@ -122,13 +122,13 @@ std::string file_process(std::string filename) {
     std::string suffix(filename, index, filename.length());
     if(suffix==".html")
         return "text/html";
-    if(suffix==".data")
+    else if(suffix==".data")
         return "application/json";
-    if(suffix==".css")
+    else if(suffix==".css")
         return "text/css";
-    if(suffix==".js")
+    else if(suffix==".js")
         return "text/javascript";
-    if(suffix==".png")
+    else if(suffix==".png")
         return "image/png";
     else
         return "text/plain";
