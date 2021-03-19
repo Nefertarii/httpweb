@@ -68,7 +68,7 @@ std::list<std::string> responehead_html(int filesize,std::string filetype) {
     content_length += std::to_string(filesize);
     content_length += "\r\n";
     std::string date = GMTime();
-    std::string server = "Server:Gwc/0.2\r\n\r\n";
+    std::string server = "Server:Gwc/0.3\r\n\r\n";
 
     std::list<std::string > HTTPHEAD;
     HTTPHEAD.push_back(state_line);
@@ -82,7 +82,6 @@ std::list<std::string> responehead_html(int filesize,std::string filetype) {
 
     return HTTPHEAD;
 }
-
 std::string http_process(std::string requesttypes,std::string readbuf) {
     std::string responfile;
     if (requesttypes == "GET") {
@@ -97,7 +96,7 @@ std::string http_process(std::string requesttypes,std::string readbuf) {
         else
             responfile.assign(readbuf, beginindex, endindex);
     }
-    else if (requesttypes == "POST")
+    /*else if (requesttypes == "POST")
     {
         int beginindex = 6, endindex = 0;
         while (1) {
@@ -109,13 +108,13 @@ std::string http_process(std::string requesttypes,std::string readbuf) {
             responfile = "index.html";
         else
             responfile.assign(readbuf, beginindex, endindex);
-    }
+    }*/
     return responfile;
 }
 std::string file_process(std::string filename) {
     int index = filename.length(); 
     while(1) {
-        if(filename[index]=='.')
+        if (filename[index] == '.' || index == 0)
             break;
         index--;
     }
