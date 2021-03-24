@@ -33,12 +33,15 @@
 int Socket(int family, int type, int protocol);
 void Bind(int fd, const struct sockaddr *sa, socklen_t salen);
 void Listen(int fd, int backlog);
-int Accept(int fd, struct sockaddr *sa, socklen_t *salenptr);
-void Connect(int fd, const struct sockaddr *sa, socklen_t salen);
+int Accept(int listenfd);
 void Close(int fd);
-void Write(int socketfd, std::string str);
-ssize_t Writefile(const char*filename, int socketfd, off_t begin, size_t &filecount);
-int Read(int connectfd, std::string &str);
+//void Connect(int fd, const struct sockaddr *sa, socklen_t salen);
+
+
+int Read(int sockfd, std::string str);
+int Readfile(std::string filename, struct Cache cache);
+int Write(int socketfd, struct Cache cache);
+int Writefile(int sockfd, struct Cache cache);
 
 struct Cache {
     std::string str = "none";
@@ -47,22 +50,18 @@ struct Cache {
     int filefd = 0;
     struct Cache *next = nullptr;
 };
-
-
-
 void err_sys(const char *fmt) {
     std::cout << fmt << strerrno(errno);
 }
+
+
+
 
 void send_httphead(int connectfd, int filesize, std::string filetype) {
     std::list<std::string> httphead = responehead_html(filesize, filetype);
     for (std::list<std::string>::iterator begin = httphead.begin(); begin != httphead.end(); begin++) {
         Write(connectfd, *begin);
     }
-}
-
-void reset(std::string str) {
-    str.clear();
 }
 
 
@@ -83,11 +82,11 @@ void Listen(int fd, int backlog) {
 	if (listen(fd, backlog) < 0)
 		err_sys("listen error");
 }
-int Accept() {
+int Accept(int listenfd) {
     struct sockaddr_in cliaddr;
     socklen_t cliaddrlen = sizeof(cliaddr);
     while(1) {
-        int connectfd = accept(fd, sa, salenptr);
+        int connectfd = accept(listenfd, (sockaddr *)&cliaddr, &cliaddrlen);
         if (connectfd < 0) {
             if(errno == EINTR)
                 continue;
@@ -100,17 +99,57 @@ int Accept() {
     }
     
 }
-
-void Connect(int fd, const struct sockaddr *sa, socklen_t salen) {
-	if (connect(fd, sa, salen) < 0)
-		err_sys("connect error");
-}
-
 void Close(int fd) {
 	if (close(fd) == -1)
 		err_sys("close error");
 }
+/*void Connect(int fd, const struct sockaddr *sa, socklen_t salen) {
+	if (connect(fd, sa, salen) < 0)
+		err_sys("connect error");
+}*/
 
+
+
+
+int Read(int sockfd, std::string str) {
+    char tmp_char[MAX_BUF_SIZE] = {0};
+    int readsize = read(sockfd, tmp_char, MAX_BUF_SIZE);
+    if (readsize < 0) {
+        free(tmp_char);
+        if(errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) 
+            err_sys("read error:");
+        return -1;
+    }
+    if (readsize == 0) {
+        free(tmp_char);
+        std::cout << "Client close." << std::endl;
+        return 0;
+    }
+    if (readsize > MAX_BUF_SIZE) {
+        free(tmp_char);
+        std::cout << "Send to Big." << std::endl;
+        return 0;
+    }
+    str = tmp_char;
+    return readsize;
+}
+int Readfile(std::string filename, struct Cache cache) {
+    struct stat filestat_;
+    int filestat;
+    const char *tmp_char = filename.c_str();
+    cache.filefd = open(tmp_char, O_RDONLY);
+    if(cache.filefd < 0) {
+        std::cout << "Not this file!" << std::endl;
+        return -1;
+    }
+    int filestat = stat(tmp_char, &filestat_);
+    if(filestat < 0) {
+        err_sys("readfile-stat error:");
+        return -1;
+    }
+    cache.remaining = filestat_.st_size;
+    return 0;
+}
 int Write(int socketfd, struct Cache cache) {
     const char *tmp_char = str.c_str();
     while(cache.remaining) {
@@ -135,24 +174,7 @@ int Write(int socketfd, struct Cache cache) {
         }
     }
 }
-int Readfile(std::string filename, struct Cache cache) {
-    struct stat filestat_;
-    int filestat;
-    const char *tmp_char = filename.c_str();
-    cache.filefd = open(tmp_char, O_RDONLY);
-    if(cache.filefd < 0) {
-        std::cout << "Not this file!" << std::endl;
-        return -1;
-    }
-    int filestat = stat(tmp_char, &filestat_);
-    if(filestat < 0) {
-        err_sys("readfile-stat error:");
-        return -1;
-    }
-    cache.remaining = filestat_.st_size;
-    return 0;
-}
-int Sendfile(int sockfd, struct Cache cache) {  
+int Writefile(int sockfd, struct Cache cache) {  
     while(cache.remaining) {
         int writesize = sendfile(sockfd, cache.filefd, cache.send, MAX_BUF_SIZE);
         if (writesize < 0) {
@@ -169,27 +191,5 @@ int Sendfile(int sockfd, struct Cache cache) {
             return 1;
         }
     }
-}
-int Read(int sockfd, std::string str) {
-    char tmp_char[MAX_BUF_SIZE] = {0};
-    int readsize = read(sockfd, tmp_char, MAX_BUF_SIZE);
-    if (readsize < 0) {
-        free(tmp_char);
-        if(errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) 
-            err_sys("read error:");
-        return -1;
-    }
-    if (readsize == 0) {
-        free(tmp_char);
-        std::cout << "Client close." << std::endl;
-        return 0;
-    }
-    if (readsize > MAX_BUF_SIZE) {
-        free(tmp_char);
-        std::cout << "Send to Big." << std::endl;
-        return 0;
-    }
-    str = tmp_char;
-    return readsize;
 }
 #endif

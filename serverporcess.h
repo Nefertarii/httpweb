@@ -65,7 +65,7 @@ int Server::Start(int epollfd_) {
     return listenfd;
 }
 void Server::Acceptconnect() {
-    int sockfd = Accept();
+    int sockfd = Accept(listenfd);
     Epollread(sockfd);
 }
 void Server::Socketwrite(int sockfd, std::string str, int length) {
@@ -86,7 +86,7 @@ void Server::Writefile(int sockfd, std::string filename) {
         //Httpsend(Not_Found);
         Close(sockfd);
     }
-    if (Sendfile(sockfd, cache) < 0) {
+    if (Writefile(sockfd, cache) < 0) {
         Close(sockfd);
     }
     Epollread(sockfd);
