@@ -44,6 +44,7 @@ void Server::Epollread(int sockfd) {
 void Server::Resetcache() {
     cache.send = 0;
     cache.remaining = 0;
+    cache.filefd = 0;
     cache.str = "none";
 }
 
