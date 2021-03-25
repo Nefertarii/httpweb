@@ -58,13 +58,14 @@ std::string GMTime() {
 }
 std::list<std::string> responehead_html(int filesize,std::string filetype) {
     std::string state_line = "HTTP/1.1 200 OK\r\n";
-    std::string constent_charset = "Constent_Charset:UTF-8\r\n";
+    std::string constent_charset = "Constent_Charset:utf-8\r\n";
     std::string content_language = "Content-Language:zh-CN\r\n";   
-    std::string content_type = "Content-Type:text/html\r\n";
+    std::string content_type = "Content-Type:";
     content_type += filetype;
     content_type += "\r\n";
     std::string connection = "Connection:Keep-alive\r\n";
     std::string content_length = "Content-Length:";
+    std::string cache_control = "Cache-Control: no-cache max-age=0\r\n";
     content_length += std::to_string(filesize);
     content_length += "\r\n";
     std::string date = GMTime();
@@ -77,14 +78,20 @@ std::list<std::string> responehead_html(int filesize,std::string filetype) {
     HTTPHEAD.push_back(content_type);
     HTTPHEAD.push_back(connection);
     HTTPHEAD.push_back(content_length);
+    HTTPHEAD.push_back(cache_control);
     HTTPHEAD.push_back(date);
     HTTPHEAD.push_back(server);
 
+
+
     return HTTPHEAD;
 }
-std::string http_process(std::string requesttypes,std::string readbuf) {
-    std::string responfile;
-    if (requesttypes == "GET") {
+std::string Httpprocess(std::string httphead,struct Clientinfo *cli) {
+    
+
+
+
+    if (httphead == "GET") {
         int beginindex = 5, endindex = 0;
         while (1) {
             if (readbuf[endindex + beginindex] == ' ')
@@ -119,6 +126,7 @@ std::string file_process(std::string filename) {
         index--;
     }
     std::string suffix(filename, index, filename.length());
+
     if(suffix==".html")
         return "text/html";
     else if(suffix==".data")
@@ -129,6 +137,10 @@ std::string file_process(std::string filename) {
         return "text/javascript";
     else if(suffix==".png")
         return "image/png";
+    else if(suffix==".svg")
+        return "image/svg";
+    else if(suffix==".ico")
+        return "image/x-icon";
     else
         return "text/plain";
 }

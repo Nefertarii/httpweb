@@ -7,31 +7,33 @@
 
 
 
-#include "connectporcess.h"
+#include "serverprocess.h"
 void start_server()
 {
-    Server GWC("80");
-    int epollfd = epoll_create(MAX_CLI);
-    struct epoll_event ev;
-    struct epoll_event events[MAXCLI];
-    int listenfd = GWC.start(&epollfd);
+    class Server Server_GWC;
+    Server_GWC.Start(SERV_PORT);
+    struct epoll_event events[MAX_CLI];
+    std::string readbuf;
     signal(SIGCHLD, SIG_IGN);
     for (;;) {
-        int nfds = epollwait(epollfd, events, MAXEVENTS, TIMEOUT);
-        if (nfds <= 0) {
-            err_sys("epollwait error:")
+        int nfds = epoll_wait(Server_GWC.SERV_EPOLL, events, MAXEVENTS, TIMEOUT);
+        if (nfds < 0 && errno != EINTR) {
+            err_sys("epoll_wait error:");
+            return;
         }
-        for (int i = 0; i < nfds; i++) {
-            GWC.Getepollevents(events[i]);
-            if(events[i].data.fd == listenfd) {
-                GWC.Acceptconnect();
+        for (int i = 0; i < nfds; ++i) {
+            std::cout << i;
+            struct epoll_event ev = events[i];
+            if(ev.data.ptr == nullptr) {
+                Server_GWC.Acceptconnect();
             }
-            else if (events[i].event & EPOLLIN) {
-                GWC.Read();
+            else if (ev.events & EPOLLIN) {
+                Server_GWC.Socketread(&readbuf, ev.data.ptr);
+                std::cout << readbuf;
             }
-            else if (events[i].event & EPOLLOUT) {
-                GWC.Write();
-                GWC.Writefile();
+            else if (ev.events & EPOLLOUT) {
+                Server_GWC.Socketwrite(readbuf, readbuf.length(), epollfd);
+                //GWC.Sockewritefile();
             }
         }
     }
