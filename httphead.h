@@ -1,6 +1,26 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
+struct Cache {
+    std::string httphead;
+    int remaining;
+    int send;
+    int filefd;
+    struct Cache *next;
+    Cache operator=(struct Cache tmp_) {
+        struct Cache tmp;
+        tmp.remaining = tmp_.remaining;
+        tmp.send = tmp_.send;
+        tmp.filefd = tmp_.filefd;
+        tmp.next = tmp_.next;
+        return tmp;
+    }
+};
+struct Clientinfo {
+    int sockfd;
+    struct Cache write;
+};
+
 
 enum STATE_CODE
 {
@@ -56,77 +76,14 @@ std::string GMTime() {
     GMT = "Data:" + GMTWeek + ", " + std::to_string(GMTDay) + " " + GMTMonth + " " + std::to_string(GMTYear) + " " + GMTime + " GMT\r\n";
     return GMT;
 }
-std::list<std::string> responehead_html(int filesize,std::string filetype) {
-    std::string state_line = "HTTP/1.1 200 OK\r\n";
-    std::string constent_charset = "Constent_Charset:utf-8\r\n";
-    std::string content_language = "Content-Language:zh-CN\r\n";   
-    std::string content_type = "Content-Type:";
-    content_type += filetype;
-    content_type += "\r\n";
-    std::string connection = "Connection:Keep-alive\r\n";
-    std::string content_length = "Content-Length:";
-    std::string cache_control = "Cache-Control: no-cache max-age=0\r\n";
-    content_length += std::to_string(filesize);
-    content_length += "\r\n";
-    std::string date = GMTime();
-    std::string server = "Server:Gwc/0.3\r\n\r\n";
-
-    std::list<std::string > HTTPHEAD;
-    HTTPHEAD.push_back(state_line);
-    HTTPHEAD.push_back(constent_charset);
-    HTTPHEAD.push_back(content_language);
-    HTTPHEAD.push_back(content_type);
-    HTTPHEAD.push_back(connection);
-    HTTPHEAD.push_back(content_length);
-    HTTPHEAD.push_back(cache_control);
-    HTTPHEAD.push_back(date);
-    HTTPHEAD.push_back(server);
-
-
-
-    return HTTPHEAD;
-}
-std::string Httpprocess(std::string httphead,struct Clientinfo *cli) {
-    
-
-
-
-    if (httphead == "GET") {
-        int beginindex = 5, endindex = 0;
-        while (1) {
-            if (readbuf[endindex + beginindex] == ' ')
-                break;
-            endindex++;
-        }
-        if(endindex==0)
-            responfile = "index.html";
-        else
-            responfile.assign(readbuf, beginindex, endindex);
-    }
-    /*else if (requesttypes == "POST")
-    {
-        int beginindex = 6, endindex = 0;
-        while (1) {
-            if (readbuf[endindex + beginindex] == ' ')
-                break;
-            endindex++;
-        }
-        if(endindex==0)
-            responfile = "index.html";
-        else
-            responfile.assign(readbuf, beginindex, endindex);
-    }*/
-    return responfile;
-}
-std::string file_process(std::string filename) {
-    int index = filename.length(); 
-    while(1) {
+std::string Filetype(std::string filename) {
+    int index = filename.length();
+    while(index>0) {
         if (filename[index] == '.' || index == 0)
             break;
         index--;
     }
     std::string suffix(filename, index, filename.length());
-
     if(suffix==".html")
         return "text/html";
     else if(suffix==".data")
@@ -144,5 +101,35 @@ std::string file_process(std::string filename) {
     else
         return "text/plain";
 }
-
+void Httpprocess(std::string httphead,std::string *filename) {
+    if(httphead.find_first_of("GET")) {
+        int begindex = 5, endindex = 0;
+        while (endindex < 100) {
+            if (httphead[endindex + begindex] == ' ')
+                break;
+            endindex++;
+        }
+        if(endindex==0)
+            *filename = "index.html";
+        else
+            filename->assign(httphead, begindex, endindex);
+    }
+    //else if(httphead.find_first_of("POST")) 
+}
+void Successhead(std::string filename, struct Clientinfo *cli) {
+    cli->write.httphead += "HTTP/1.1 200 OK\r\n";                       
+    cli->write.httphead += "Constent_Charset:utf-8\r\n";                
+    cli->write.httphead += "Content-Language:zh-CN\r\n";                
+    cli->write.httphead += "Content-Type:";                             
+    cli->write.httphead += Filetype(filename);
+    cli->write.httphead += "\r\n";                                      
+    cli->write.httphead += "Connection:Keep-alive\r\n";                 
+    cli->write.httphead += "Content-Length:";                           
+    cli->write.httphead += std::to_string(cli->write.remaining);
+    cli->write.httphead += "\r\n";                                      
+    //cli->write.httphead += "Cache-Control: no-cache max-age=0\r\n";
+    cli->write.httphead += GMTime();
+    cli->write.httphead += "Server:Gwc/0.5\r\n\r\n";                    
+    cli->write.remaining += cli->write.httphead.length();
+}
 #endif

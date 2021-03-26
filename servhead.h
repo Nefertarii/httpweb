@@ -17,7 +17,6 @@
 #include <ctime>
 #include <list>
 #include <fstream>
-//#include "readfile.h"
 #include "httphead.h"
 
 #define OPEN_MAX 64
@@ -43,28 +42,6 @@ int Read(int sockfd, std::string str);
 int Readfile(std::string filename, struct Cache cache);
 int Write(int socketfd, struct Cache cache);
 int Writefile(int sockfd, struct Cache cache);
-
-struct Cache {
-    std::string str = "none";
-    int remaining = 0;
-    int send = 0;
-    int filefd = 0;
-    struct Cache *next = nullptr;
-    Cache operator=(struct Cache tmp_) {
-        struct Cache tmp;
-        tmp.str = tmp_.str;
-        tmp.remaining = tmp_.remaining;
-        tmp.send = tmp_.send;
-        tmp.filefd = tmp_.filefd;
-        tmp.next = tmp_.next;
-        return tmp;
-    }
-};
-struct Clientinfo {
-    int fd;
-    struct Cache write;
-};
-
 void err_sys(const char *fmt) {
     std::cout << fmt << strerror(errno) << std::endl;
 }
@@ -119,7 +96,7 @@ int Read(int fd, std::string *str) {
     }
     if (readsize == 0) {
         std::cout << "Client close." << std::endl;
-        return 0;
+        return -1;
     }
     if (readsize > MAX_BUF_SIZE) {
         std::cout << "Readbuf to Big." << std::endl;
@@ -128,12 +105,12 @@ int Read(int fd, std::string *str) {
     *str = tmp_char;
     return readsize;
 }
-int Readfile(std::string filename, struct Cache *cache) {
+int Readfile(std::string filename, struct Clientinfo *cli) {
     struct stat filestat_;
     int filestat;
     const char *tmp_char = filename.c_str();
-    cache->filefd = open(tmp_char, O_RDONLY);
-    if(cache->filefd < 0) {
+    cli->write.filefd = open(tmp_char, O_RDONLY);
+    if(cli->write.filefd < 0) {
         std::cout << "Not this file!" << std::endl;
         return -1;
     }
@@ -142,54 +119,46 @@ int Readfile(std::string filename, struct Cache *cache) {
         err_sys("readfile-stat error:");
         return -1;
     }
-    cache->remaining = filestat_.st_size;
+    cli->write.remaining = filestat_.st_size;
     return 0;
 }
-int Write(int socketfd, struct Cache *cache) {
-    const char *tmp_char = cache->str.c_str();
-    while(cache->remaining) {
-        int writesize = write(socketfd, tmp_char, MAX_BUF_SIZE);
-        if (writesize < 0) {
-            if(errno == EINTR)
-                continue;           //signal interruption
-            else if(errno == EAGAIN || errno == EWOULDBLOCK) {
-                return MAX_BUF_SIZE + 1;
-            }
-                
-            else {
-                err_sys("write error:");
-                return -1;
-            }
-        }
-        if (cache->remaining > MAX_BUF_SIZE) {
-            cache->send += MAX_BUF_SIZE;
-            cache->remaining -= cache->send;
-            cache->str = cache->str.substr(MAX_BUF_SIZE);
+int Writehttphead(struct Clientinfo *cli) {   //httphead
+    const char *tmp_char = cli->write.httphead.c_str();
+    int writesize = write(cli->sockfd, tmp_char, MAX_BUF_SIZE);
+    if (writesize < 0) {
+        if(errno == EINTR)
+            return 1;           //signal interruption
+        else if(errno == EAGAIN || errno == EWOULDBLOCK) {
+            return MAX_BUF_SIZE + 1;
         }
         else {
-            return 1;
+            err_sys("write error:");
+            return -1;
         }
     }
-    return 1;
+    cli->write.remaining -= cli->write.httphead.length();
+    return 0;
 }
-int Writefile(int sockfd, struct Cache *cache) {  
-    while(cache->remaining) {
-        off_t send = cache->send;
-        int writesize = sendfile(sockfd, cache->filefd, &send, MAX_BUF_SIZE);
+int Writefile(struct Clientinfo *cli) {  
+    while(cli->write.remaining) {
+        off_t send = cli->write.send;
+        int writesize = sendfile(cli->sockfd, cli->write.filefd, &send, MAX_BUF_SIZE);
         if (writesize < 0) {
             if(errno == EINTR)
                 continue;
-            else
+            else {
                 err_sys("sendfile error:");
+                return -1;
+            }
         }
-        if (cache->remaining > MAX_BUF_SIZE) {
-            cache->send += MAX_BUF_SIZE;
-            cache->remaining -= cache->send;
+        if (cli->write.remaining > MAX_BUF_SIZE) {
+            cli->write.send += MAX_BUF_SIZE;
+            cli->write.remaining -= cli->write.send;
         }
         else {
-            return 1;
+            cli->write.remaining = 0;
         }
     }
-    return 1;
+    return 0;
 }
 #endif

@@ -16,13 +16,13 @@ void start_server()
     std::string readbuf;
     signal(SIGCHLD, SIG_IGN);
     for (;;) {
-        int nfds = epoll_wait(Server_GWC.SERV_EPOLL, events, MAXEVENTS, TIMEOUT);
+        int nfds = epoll_wait(Server_GWC.Epollfd(), events, MAXEVENTS, TIMEOUT);
         if (nfds < 0 && errno != EINTR) {
             err_sys("epoll_wait error:");
             return;
         }
         for (int i = 0; i < nfds; ++i) {
-            std::cout << i;
+            std::cout << i << std::endl;
             struct epoll_event ev = events[i];
             if(ev.data.ptr == nullptr) {
                 Server_GWC.Acceptconnect();
@@ -32,8 +32,7 @@ void start_server()
                 std::cout << readbuf;
             }
             else if (ev.events & EPOLLOUT) {
-                Server_GWC.Socketwrite(readbuf, readbuf.length(), epollfd);
-                //GWC.Sockewritefile();
+                Server_GWC.Socketwrite(ev.data.ptr);
             }
         }
     }
