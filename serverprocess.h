@@ -9,18 +9,19 @@ class Server {
         void TCPlisten();
         void Createclient(int fd);
         void Clientclose(Clientinfo *cli);
+        void Setnoblocking(int fd);
         void Record();
         void Epollwrite(int fd);              //state ready to write
         void Epollread(int fd);                //state ready to read
         void Epolladd(int fd, Clientinfo *cli);
-        void Resetcache(Clientinfo *cli);
+        void Resetinfo(Clientinfo *cli);
 
     public:
         Server();
         void Start(int epollfd);
         void Acceptconnect();
-        void Socketwrite(void *cli_p);
-        void Socketread(std::string *str, void *cli_p);
+        void Socketwrite(void *cli);
+        void Socketread(std::string *str, void *cli);
         int Epollfd() { return epollfd; }
         ~Server();
 };
@@ -43,6 +44,7 @@ void Server::Createclient(int connectfd) {
         }
         if (clients[i].sockfd < 0) {
             clients[i].sockfd = connectfd;
+            Setnoblocking(connectfd);
             Epolladd(connectfd, &clients[i]);
             break;
         }
@@ -54,7 +56,13 @@ void Server::Clientclose(Clientinfo *cli) {
     if (close(cli->sockfd) < 0)
         err_sys("close error:");
     cli->sockfd = -1;
-    Resetcache(cli);
+    Resetinfo(cli);
+}
+void Server::Setnoblocking(int fd) {
+    int flag = fcntl(fd, F_GETFL, 0);
+    if (flag >= 0) {
+        fcntl(fd, F_SETFL, flag | O_NONBLOCK);
+    }
 }
 void Server::Record() {}
 void Server::Epollwrite(int fd) {
@@ -72,12 +80,13 @@ void Server::Epolladd(int fd, Clientinfo *cli) {
     ev.events = EPOLLIN | EPOLLET;
     ev.data.ptr = cli;
     epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
+    std::cout << "Client create." << std::endl;
 }
-void Server::Resetcache(Clientinfo *cli) {
-    cli->write.httphead.clear();
-    cli->write.remaining = 0;
-    cli->write.send = 0;
-    cli->write.filefd = -1;
+void Server::Resetinfo(Clientinfo *cli) {
+    cli->httphead.clear();
+    cli->remaining = 0;
+    cli->send = 0;
+    cli->filefd = -1;
 }
 
 Server::Server() {
@@ -85,12 +94,11 @@ Server::Server() {
     listenfd = 0;
     epollfd = 0;
     for (int i = 0; i != MAX_CLI; i++) {
+        clients[i].httphead.clear();
         clients[i].sockfd = -1;
-        clients[i].write.httphead.clear();
-        clients[i].write.remaining = 0;
-        clients[i].write.send = 0;
-        clients[i].write.filefd = -1;
-        clients[i].write.next = nullptr;
+        clients[i].remaining = 0;
+        clients[i].send = 0;
+        clients[i].filefd = -1;
     }
     std::cout << "Initialisation complete" << std::endl;
 }
@@ -106,7 +114,11 @@ void Server::Acceptconnect() {
     Createclient(connectfd);
 }
 void Server::Socketwrite(void *cli_p) {
-    Clientinfo *cli = static_cast<Clientinfo *>(malloc(sizeof(cli_p)));
+    Clientinfo *cli = (Clientinfo *)cli_p;
+    if (cli->httphead.length()>0) {
+        Writehttphead(cli);
+        Clientclose(cli);
+    }
     int writesize;
     do {
         writesize = Writehttphead(cli);
@@ -121,29 +133,32 @@ void Server::Socketwrite(void *cli_p) {
     writesize = Writefile(cli);
     if (writesize < 0)
         Clientclose(cli);
-    Epollread(cli->sockfd);
-    Resetcache(cli);
+    else {
+        Epollread(cli->sockfd);
+        Resetinfo(cli);
+    }
 }
 void Server::Socketread(std::string *str, void *cli_p) {
-    Clientinfo *cli = static_cast<Clientinfo *>(malloc(sizeof(cli_p)));
+    //Clientinfo *cli = static_cast<Clientinfo *>(malloc(sizeof(cli_p)));
+    Clientinfo *cli = (Clientinfo *)cli_p;
     int readsize = Read(cli->sockfd, str);
     if (readsize <= 0) {
         if (readsize < 0) {
             Clientclose(cli);
         }
-        cli->write.httphead = "HTTP/1.1 400 Bad_Request";
-        cli->write.remaining = cli->write.httphead.length();
+        cli->httphead = "HTTP/1.1 400 Bad_Request";
+        cli->remaining = cli->httphead.length();
         Epollwrite(cli->sockfd);
     }
     else { //读取信息处理 cli cache的大小也在此处设置
         std::string filename;
-        Httpprocess(*str, &filename);
+        Httpprocess(str, &filename);
         if (Readfile(filename, cli)) {
             Successhead(filename, cli);
         }
         else {
-            cli->write.httphead = "HTTP/1.1 400 Bad_Request";
-            cli->write.remaining = cli->write.httphead.length();
+            cli->httphead = "HTTP/1.1 400 Bad_Request";
+            cli->remaining = cli->httphead.length();
             Epollwrite(cli->sockfd);
         }
     }

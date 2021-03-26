@@ -20,13 +20,11 @@
 #include "httphead.h"
 
 #define OPEN_MAX 64
-#define MAX_NAME 64
 #define MAX_BUF_SIZE 4000
-#define MAX_LINE 20
 #define SERV_PORT 80
-#define MAXEVENTS 20
+#define MAXEVENTS 50
 #define TIMEOUT 0
-#define MAX_CLI 50 //maximum number of client connections
+#define MAX_CLI 50      //maximum number of client connections
 #define LISTEN_WAIT 20
 #define INFTIM (-1)
 #define DIR "/home/ftp_dir/Webserver/server/"
@@ -49,35 +47,38 @@ void err_sys(const char *fmt) {
 
 int Socket(int family, int type, int protocol) {
     int sockfd = socket(family, type, protocol);
-    if (sockfd < 0)
+    if (sockfd < 0) {
         err_sys("socket error:");
+        exit(1);
+    }
     return sockfd;
 }
 void Bind(int fd, const struct sockaddr *sa, socklen_t salen)
 {
-	if (bind(fd, sa, salen) < 0)
+	if (bind(fd, sa, salen) < 0) {
 		err_sys("bind error:");
+        exit(1);
+    }
 }
 void Listen(int fd, int backlog) {
-	if (listen(fd, backlog) < 0)
+	if (listen(fd, backlog) < 0) {
 		err_sys("listen error:");
+        exit(1);
+    }
 }
+
 int Accept(int listenfd) {
-    struct sockaddr_storage  cliaddr;
+    struct sockaddr_in cliaddr;
     socklen_t cliaddrlen = sizeof(cliaddr);
     while(1) {
-        int connectfd = accept(listenfd, (struct sockaddr *)&cliaddr, &cliaddrlen);
+        int connectfd = accept(listenfd, (sockaddr *)&cliaddr, &cliaddrlen);
         if (connectfd < 0) {
             if(errno == EINTR)
                 continue;
             err_sys("accept error:");
             exit(1);
         }
-        char host[NI_MAXHOST];
-        char service[NI_MAXSERV];
-        if (getnameinfo((struct sockaddr *)&cliaddr, cliaddrlen, host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
-            std::cout << "Get accept form:" << host << " " << service
-                      << "\tConnectfd: " << connectfd << std::endl;
+        std::cout << "Get accept form:" << inet_ntoa(cliaddr.sin_addr) << std::endl;
         return connectfd;
     }
     
@@ -109,8 +110,8 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
     struct stat filestat_;
     int filestat;
     const char *tmp_char = filename.c_str();
-    cli->write.filefd = open(tmp_char, O_RDONLY);
-    if(cli->write.filefd < 0) {
+    cli->filefd = open(tmp_char, O_RDONLY);
+    if(cli->filefd < 0) {
         std::cout << "Not this file!" << std::endl;
         return -1;
     }
@@ -119,11 +120,11 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
         err_sys("readfile-stat error:");
         return -1;
     }
-    cli->write.remaining = filestat_.st_size;
+    cli->remaining = filestat_.st_size;
     return 0;
 }
-int Writehttphead(struct Clientinfo *cli) {   //httphead
-    const char *tmp_char = cli->write.httphead.c_str();
+int Writehttphead(struct Clientinfo *cli) {
+    const char *tmp_char = cli->httphead.c_str();
     int writesize = write(cli->sockfd, tmp_char, MAX_BUF_SIZE);
     if (writesize < 0) {
         if(errno == EINTR)
@@ -136,13 +137,13 @@ int Writehttphead(struct Clientinfo *cli) {   //httphead
             return -1;
         }
     }
-    cli->write.remaining -= cli->write.httphead.length();
+    cli->remaining -= cli->httphead.length();
     return 0;
 }
 int Writefile(struct Clientinfo *cli) {  
-    while(cli->write.remaining) {
-        off_t send = cli->write.send;
-        int writesize = sendfile(cli->sockfd, cli->write.filefd, &send, MAX_BUF_SIZE);
+    while(cli->remaining) {
+        off_t send = cli->send;
+        int writesize = sendfile(cli->sockfd, cli->filefd, &send, MAX_BUF_SIZE);
         if (writesize < 0) {
             if(errno == EINTR)
                 continue;
@@ -151,12 +152,12 @@ int Writefile(struct Clientinfo *cli) {
                 return -1;
             }
         }
-        if (cli->write.remaining > MAX_BUF_SIZE) {
-            cli->write.send += MAX_BUF_SIZE;
-            cli->write.remaining -= cli->write.send;
+        if (cli->remaining > MAX_BUF_SIZE) {
+            cli->send += MAX_BUF_SIZE;
+            cli->remaining -= cli->send;
         }
         else {
-            cli->write.remaining = 0;
+            cli->remaining = 0;
         }
     }
     return 0;

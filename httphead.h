@@ -1,24 +1,21 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
-struct Cache {
+struct Clientinfo {
     std::string httphead;
+    int sockfd;
     int remaining;
     int send;
     int filefd;
-    struct Cache *next;
-    Cache operator=(struct Cache tmp_) {
-        struct Cache tmp;
+    Clientinfo operator=(struct Clientinfo tmp_) {
+        struct Clientinfo tmp;
+        tmp.httphead = tmp_.httphead;
+        tmp.sockfd = tmp_.sockfd;
         tmp.remaining = tmp_.remaining;
         tmp.send = tmp_.send;
         tmp.filefd = tmp_.filefd;
-        tmp.next = tmp_.next;
         return tmp;
     }
-};
-struct Clientinfo {
-    int sockfd;
-    struct Cache write;
 };
 
 
@@ -101,35 +98,37 @@ std::string Filetype(std::string filename) {
     else
         return "text/plain";
 }
-void Httpprocess(std::string httphead,std::string *filename) {
-    if(httphead.find_first_of("GET")) {
-        int begindex = 5, endindex = 0;
-        while (endindex < 100) {
-            if (httphead[endindex + begindex] == ' ')
+void Httpprocess(std::string *httphead,std::string *filename) {
+    if(httphead->find_first_of("GET")) {
+        int beg = 4, end = 0;
+        while (end < 100) {
+            if (httphead[0][end + beg] == ' ')
                 break;
-            endindex++;
+            end++;
         }
-        if(endindex==0)
+        if(end==0)
             *filename = "index.html";
         else
-            filename->assign(httphead, begindex, endindex);
+            filename->assign(httphead[0], beg, end);
     }
+    std::cout << "File name:" << *filename
+              << "\tFiletype: " << Filetype(*filename) << std::endl;
     //else if(httphead.find_first_of("POST")) 
 }
 void Successhead(std::string filename, struct Clientinfo *cli) {
-    cli->write.httphead += "HTTP/1.1 200 OK\r\n";                       
-    cli->write.httphead += "Constent_Charset:utf-8\r\n";                
-    cli->write.httphead += "Content-Language:zh-CN\r\n";                
-    cli->write.httphead += "Content-Type:";                             
-    cli->write.httphead += Filetype(filename);
-    cli->write.httphead += "\r\n";                                      
-    cli->write.httphead += "Connection:Keep-alive\r\n";                 
-    cli->write.httphead += "Content-Length:";                           
-    cli->write.httphead += std::to_string(cli->write.remaining);
-    cli->write.httphead += "\r\n";                                      
-    //cli->write.httphead += "Cache-Control: no-cache max-age=0\r\n";
-    cli->write.httphead += GMTime();
-    cli->write.httphead += "Server:Gwc/0.5\r\n\r\n";                    
-    cli->write.remaining += cli->write.httphead.length();
+    cli->httphead += "HTTP/1.1 200 OK\r\n";                       
+    cli->httphead += "Constent_Charset:utf-8\r\n";                
+    cli->httphead += "Content-Language:zh-CN\r\n";                
+    cli->httphead += "Content-Type:";                             
+    cli->httphead += Filetype(filename);
+    cli->httphead += "\r\n";                                      
+    cli->httphead += "Connection:Keep-alive\r\n";                 
+    cli->httphead += "Content-Length:";                           
+    cli->httphead += std::to_string(cli->remaining);
+    cli->httphead += "\r\n";                                      
+    //cli->httphead += "Cache-Control: no-cache max-age=0\r\n";
+    cli->httphead += GMTime();
+    cli->httphead += "Server:Gwc/0.5\r\n\r\n";                    
+    cli->remaining += cli->httphead.length();
 }
 #endif

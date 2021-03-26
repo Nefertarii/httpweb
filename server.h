@@ -21,18 +21,20 @@ void start_server()
             err_sys("epoll_wait error:");
             return;
         }
-        for (int i = 0; i < nfds; ++i) {
-            std::cout << i << std::endl;
+        for (int i = 0; i < nfds; i++) {
             struct epoll_event ev = events[i];
             if(ev.data.ptr == nullptr) {
                 Server_GWC.Acceptconnect();
-            }
-            else if (ev.events & EPOLLIN) {
-                Server_GWC.Socketread(&readbuf, ev.data.ptr);
-                std::cout << readbuf;
-            }
-            else if (ev.events & EPOLLOUT) {
-                Server_GWC.Socketwrite(ev.data.ptr);
+            } 
+            else {
+                if (ev.events & EPOLLIN) {
+                    std::cout << "read...\t";
+                    Server_GWC.Socketread(&readbuf, ev.data.ptr);
+                }
+                else if (ev.events & EPOLLOUT) {
+                    std::cout << "write...\t";
+                    Server_GWC.Socketwrite(ev.data.ptr);
+                }
             }
         }
     }
