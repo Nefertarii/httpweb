@@ -66,7 +66,6 @@ void Listen(int fd, int backlog) {
         exit(1);
     }
 }
-
 int Accept(int listenfd) {
     struct sockaddr_in cliaddr;
     socklen_t cliaddrlen = sizeof(cliaddr);
@@ -83,10 +82,8 @@ int Accept(int listenfd) {
     }
     
 }
-
-
-
-int Read(int fd, std::string *str) {
+//传入待处理的sockfd 将数据写入str中  成功返回读取的字节数  失败视情况返回 0/-1 
+int Read(int fd, std::string *str) { 
     char tmp_char[MAX_BUF_SIZE] = {0};
     int readsize = read(fd, tmp_char, MAX_BUF_SIZE);
     if (readsize < 0) {
@@ -106,6 +103,9 @@ int Read(int fd, std::string *str) {
     *str = tmp_char;
     return readsize;
 }
+//传入要处理的文件名字(若在其他目录传入的名字带相对路径) 
+//cli中写入读取的本地文件fd并根据文件大小设置发送的大小
+//成功返回1 失败返回0/-1
 int Readfile(std::string filename, struct Clientinfo *cli) {
     struct stat filestat_;
     int filestat;
@@ -113,7 +113,7 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
     cli->filefd = open(tmp_char, O_RDONLY);
     if(cli->filefd < 0) {
         std::cout << "Not this file!" << std::endl;
-        return -1;
+        return 0; 
     }
     filestat = stat(tmp_char, &filestat_);
     if(filestat < 0) {
@@ -121,14 +121,16 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
         return -1;
     }
     cli->remaining = filestat_.st_size;
-    return 0;
+    return 1;
 }
+//在cli中读取并传输本次所需数据的http头数据
+//成功返回1 失败返回0/-1
 int Writehttphead(struct Clientinfo *cli) {
     const char *tmp_char = cli->httphead.c_str();
     int writesize = write(cli->sockfd, tmp_char, MAX_BUF_SIZE);
     if (writesize < 0) {
         if(errno == EINTR)
-            return 1;           //signal interruption
+            return 0;           //signal interruption
         else if(errno == EAGAIN || errno == EWOULDBLOCK) {
             return MAX_BUF_SIZE + 1;
         }
@@ -138,8 +140,10 @@ int Writehttphead(struct Clientinfo *cli) {
         }
     }
     cli->remaining -= cli->httphead.length();
-    return 0;
+    return 1;
 }
+//在cli中读取保存的本地文件fd 利用系统函数sendfile读取并发送该文件
+//成功返回1 失败返回0/-1
 int Writefile(struct Clientinfo *cli) {  
     while(cli->remaining) {
         off_t send = cli->send;
@@ -160,6 +164,6 @@ int Writefile(struct Clientinfo *cli) {
             cli->remaining = 0;
         }
     }
-    return 0;
+    return 1;
 }
 #endif

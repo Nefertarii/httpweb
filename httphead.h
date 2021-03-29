@@ -7,6 +7,13 @@ struct Clientinfo {
     int remaining;
     int send;
     int filefd;
+    Clientinfo() {
+        httphead = "";
+        sockfd = -1;
+        remaining = -1;
+        send = -1;
+        filefd = -1;
+    }
     Clientinfo operator=(struct Clientinfo tmp_) {
         struct Clientinfo tmp;
         tmp.httphead = tmp_.httphead;
@@ -98,24 +105,23 @@ std::string Filetype(std::string filename) {
     else
         return "text/plain";
 }
-void Httpprocess(std::string *httphead,std::string *filename) {
-    if(httphead->find_first_of("GET")) {
-        int beg = 4, end = 0;
+void Httpprocess(std::string httphead,std::string *filename) {
+    //if(httphead->find_first_of("GET")) {
+        int beg = 5, end = 0;
         while (end < 100) {
-            if (httphead[0][end + beg] == ' ')
+            if (httphead[end + beg] == ' ')
                 break;
             end++;
         }
         if(end==0)
             *filename = "index.html";
         else
-            filename->assign(httphead[0], beg, end);
-    }
-    std::cout << "File name:" << *filename
-              << "\tFiletype: " << Filetype(*filename) << std::endl;
+            filename->assign(httphead, beg, end);
+    //}
     //else if(httphead.find_first_of("POST")) 
 }
 void Successhead(std::string filename, struct Clientinfo *cli) {
+    cli->httphead.clear();
     cli->httphead += "HTTP/1.1 200 OK\r\n";                       
     cli->httphead += "Constent_Charset:utf-8\r\n";                
     cli->httphead += "Content-Language:zh-CN\r\n";                
@@ -128,7 +134,8 @@ void Successhead(std::string filename, struct Clientinfo *cli) {
     cli->httphead += "\r\n";                                      
     //cli->httphead += "Cache-Control: no-cache max-age=0\r\n";
     cli->httphead += GMTime();
-    cli->httphead += "Server:Gwc/0.5\r\n\r\n";                    
+    cli->httphead += "Server:Gwc/0.5\r\n\r\n";
+
     cli->remaining += cli->httphead.length();
 }
 #endif
