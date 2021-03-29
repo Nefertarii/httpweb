@@ -45,6 +45,10 @@ class serverporcess 服务器所有操作都在该类中进行 并保存了需�
 servhead.h
 --------------
 	头文件包含了所有的主要函数
+httphead.h
+----------------
+	struct Clientinfo 用于保存连接的对端信息
+	处理接收到的请求
 	
 
 
