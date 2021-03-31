@@ -8,11 +8,11 @@ struct Clientinfo {
     int send;
     int filefd;
     Clientinfo() {
-        httphead = "";
-        sockfd = -1;
-        remaining = -1;
-        send = -1;
-        filefd = -1;
+        httphead;
+        sockfd;
+        remaining;
+        send;
+        filefd;
     }
     Clientinfo operator=(struct Clientinfo tmp_) {
         struct Clientinfo tmp;

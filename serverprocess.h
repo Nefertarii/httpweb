@@ -7,15 +7,14 @@ class Server {
         int listenfd, epollfd;
         std::string readbuf;
         struct Clientinfo clients[MAX_CLI];
-        struct epoll_event events[MAX_CLI];
+        struct epoll_event ev, events[MAX_CLI];
+        void Record();
         void TCPlisten(int port);
         void Createclient(int fd);
-        void Clientclose(Clientinfo *cli);
-        void Setnoblocking(int fd);
-        void Record();
-        void Epollwrite(int fd, void *cli);       //state ready to write
-        void Epollread(int fd, void *cli);         //state ready to read
-        void Epolladd(int fd, void *cli);
+        void Closeclient(Clientinfo *cli);
+        void Epollwrite(Clientinfo *cli);//state ready to write
+        void Epollread(Clientinfo *cli);//state ready to read
+        void Epolladd(int fd, Clientinfo *cli);
         void Resetinfo(Clientinfo *cli);
 
     public:
@@ -23,7 +22,7 @@ class Server {
         void Start();
         void Acceptconnect();
         void Socketwrite(void *cli);
-        void Socketread(std::string str, void *cli);
+        void Socketread(void *cli);
         int Epollfd() { return epollfd; }
         ~Server();
 };
@@ -35,6 +34,7 @@ void Server::TCPlisten(int port) {
     servaddr.sin_port = htons(port);
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     listenfd = Socket(AF_INET, SOCK_STREAM, 0);
+    Setreuseaddr(listenfd);
     Bind(listenfd, (sockaddr *)&servaddr, sizeof(servaddr));
     Listen(listenfd, LISTEN_WAIT);
 }
@@ -43,44 +43,39 @@ void Server::Createclient(int connectfd) {
     for (int i = 0; i <= MAX_CLI; i++) {
         if(i == MAX_CLI) {
         std::cout << "too many client: " << connectfd << std::endl;
-        //Clientclose(client);
+        //Closeclient(client);
         }
         if (clients[i].sockfd < 0) {
             clients[i].sockfd = connectfd;
-            Setnoblocking(connectfd);
+            //Setnoblocking(connectfd);
+            Setbuffer(connectfd);
             Epolladd(connectfd, &clients[i]);
             break;
         }
     }
     
 }
-void Server::Clientclose(Clientinfo *cli) {  
+void Server::Closeclient(Clientinfo *cli) {
+    Close(cli->sockfd);
     epoll_ctl(epollfd, EPOLL_CTL_DEL, cli->sockfd, nullptr);
-    if (close(cli->sockfd) < 0)
-        err_sys("close error:");
     cli->sockfd = -1;
     Resetinfo(cli);
-}
-void Server::Setnoblocking(int fd) {
-    int flag = fcntl(fd, F_GETFL, 0);
-    if (flag >= 0) {
-        fcntl(fd, F_SETFL, flag | O_NONBLOCK);
-    }
+    std::cout << "\tClose client " << std::endl;
 }
 void Server::Record() {}
-void Server::Epollwrite(int fd, void *cli) {
+void Server::Epollwrite(Clientinfo *cli) {
     struct epoll_event ev;
     ev.events = EPOLLOUT | EPOLLET;
     ev.data.ptr = cli;
-    epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &ev);
+    epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->sockfd, &ev);
 }
-void Server::Epollread(int fd, void *cli) {
+void Server::Epollread(Clientinfo *cli) {
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
     ev.data.ptr = cli;
-    epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &ev);
+    epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->sockfd, &ev);
 }
-void Server::Epolladd(int fd, void *cli) {
+void Server::Epolladd(int fd, Clientinfo *cli) {
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
     ev.data.ptr = cli;
@@ -88,8 +83,8 @@ void Server::Epolladd(int fd, void *cli) {
 }
 void Server::Resetinfo(Clientinfo *cli) {
     cli->httphead.clear();
-    cli->remaining = -1;
-    cli->send = -1;
+    cli->remaining = 0;
+    cli->send = 0;
     cli->filefd = -1;
 }
 
@@ -104,8 +99,12 @@ Server::Server(int port) {
     epollfd = epoll_create(MAX_CLI);
     TCPlisten(port);
     Epolladd(listenfd, nullptr);
-    signal(SIGCHLD, SIG_IGN);
-    std::cout << epoll_wait(epollfd, events, MAXEVENTS, TIMEOUT);
+    //signal(SIGCHLD, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN);
+    /*sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGPIPE);
+    sigprocmask(SIG_BLOCK, &set, NULL);*/
     std::cout << "Initialisation complete" << std::endl;
 }
 void Server::Start() {
@@ -117,17 +116,15 @@ void Server::Start() {
             return;
         }
         for (int i = 0; i < nfds; i++) {
-            struct epoll_event ev = events[i];
-            if(ev.data.fd == listenfd) {
+            ev = events[i];
+            if(ev.data.ptr == nullptr) {
                 Acceptconnect();
             } 
             else {
                 if (ev.events & EPOLLIN) {
-                    std::cout << "read...\t";
-                    Socketread(readbuf, ev.data.ptr);
+                    Socketread(ev.data.ptr);
                 }
                 else if (ev.events & EPOLLOUT) {
-                    std::cout << "write...\t";
                     Socketwrite(ev.data.ptr);
                 }
             }
@@ -140,58 +137,78 @@ void Server::Acceptconnect() {
 }
 void Server::Socketwrite(void *cli_p) {
     Clientinfo *cli = (Clientinfo *)cli_p;
-    if (cli->httphead.length()>0) {
-        Writehttphead(cli);
-        Clientclose(cli);
-    }
-    int writesize;
-    do {
-        writesize = Writehttphead(cli);
-        if (writesize < 0)
-            Clientclose(cli);
-        else if (writesize > MAX_BUF_SIZE) 
-            std::cout << "kernel cache is full." << std::endl;
-        else {
-            continue;
-        }
-    } while (writesize);
-    writesize = Writefile(cli);
-    if (writesize < 0)
-        Clientclose(cli);
-    else {
-        Epollread(cli->sockfd, cli);
+    //head
+    std::cout << "Write head";
+    int n = Writehead(cli->httphead, cli->sockfd);
+    if(n == -1) {
+        Closeclient(cli);
         Resetinfo(cli);
     }
+    else if (n == 0) {
+        std::cout << "kernel cache is full. do again" << std::endl;
+    }
+    else {
+        cli->remaining -= cli->httphead.length();
+        cli->httphead.clear();
+        std::cout << "   done.";
+    }
+    //file
+    if (cli->remaining > 0) {
+        std::cout << " Write file";
+        while(1) {
+            int n = Writefile(cli->send, cli->remaining, cli->sockfd, cli->filefd);
+            if (n == 0) {
+                std::cout << "kernel cache is full/Write not over do again" << std::endl;
+            }
+            else if (n == -1) {
+                Closeclient(cli);
+                cli->sockfd = -1;
+                Resetinfo(cli);
+            }
+            else if(n == 2){
+                cli->send += MAX_BUF_SIZE;
+                cli->remaining -= cli->send;
+                continue;
+            }
+            else {
+                Resetinfo(cli);
+                Epollread(cli);
+                std::cout << "   done." << std::endl;
+                break;
+            }
+        }
+    }
 }
-void Server::Socketread(std::string str, void *cli_p) {
+void Server::Socketread(void *cli_p) {
     //Clientinfo *cli = static_cast<Clientinfo *>(malloc(sizeof(cli_p)));
     Clientinfo *cli = (Clientinfo *)cli_p;
-    int readsize = Read(cli->sockfd, &str);
+    int readsize = Read(cli->sockfd, &readbuf);
     if (readsize <= 0) {
         if (readsize < 0) {
-            Clientclose(cli);
+            Closeclient(cli);
         }
-        cli->httphead = "HTTP/1.1 400 Bad_Request";
-        cli->remaining = cli->httphead.length();
-        Epollwrite(cli->sockfd, cli);
+        else {
+            cli->httphead = "HTTP/1.1 400 Bad_Request";
+            cli->remaining = cli->httphead.length();
+            Epollwrite(cli);
+        }
     }
     else { //读取信息处理 cli cache的大小也在此处设置
         std::string filename;
-        Httpprocess(str, &filename);
-        std::cout << "Filetype: " << Filetype(filename)
-                  << "\tFile:" << filename
-                  << "\tReading...";
+        Httpprocess(readbuf, &filename);
+        std::cout << "  Filetype: " << Filetype(filename)
+                  << "  File:" << filename
+                  << " Reading...";
         if (Readfile(filename, cli)) {
-            std::cout << "\tsuccess!" << std::endl;
+            std::cout << "  success!" << std::endl;
             Successhead(filename, cli);
-            Epollwrite(cli->sockfd, cli);
         }
         else {
-            std::cout << "\tfail!" << std::endl;
+            std::cout << "  fail!" << std::endl;
             cli->httphead = "HTTP/1.1 400 Bad_Request";
             cli->remaining = cli->httphead.length();
-            Epollwrite(cli->sockfd, cli);
         }
+        Epollwrite(cli);
     }
 }
 Server::~Server() {
@@ -202,3 +219,11 @@ Server::~Server() {
 
 
 #endif
+
+/*
+        std::cout << "cli.httphead:" << cli->httphead << std::endl;
+        std::cout << "cli.filefd:" << cli->filefd << std::endl;
+        std::cout << "cli.remaining:" << cli->remaining << std::endl;
+        std::cout << "cli.send:" << cli->send << std::endl;
+        std::cout << "cli.sockfd:" << cli->sockfd << std::endl;
+*/
