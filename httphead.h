@@ -138,4 +138,7 @@ void Successhead(std::string filename, struct Clientinfo *cli) {
 
     cli->remaining += cli->httphead.length();
 }
+
+
+
 #endif

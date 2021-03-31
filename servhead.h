@@ -152,13 +152,17 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
     return 1;
 }
 //在cli中读取并传输本次所需数据的http头数据
-//成功返回1 失败返回0/-1
+//成功返回1 失败返回0/-1  0=写未完成 需要再次执行   -1=出错 需关闭连接
 int Writehead(std::string httphead,int sockfd) {
     const char *tmp_char = httphead.c_str();
+    int num = 0;//记录信号阻塞次数 防止卡住
     while(1) {
+        if(num > 10)
+            return 0;
         if (write(sockfd, tmp_char, strlen(tmp_char)) < 0) {
             if(errno == EINTR) {
                 std::cout << "signal interruption." << std::endl;
+                num++;
                 continue;//signal interruption
             }
             else if(errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -171,12 +175,11 @@ int Writehead(std::string httphead,int sockfd) {
         }      
         return 1;
     }
-    
 }
 //在cli中读取保存的本地文件fd 利用系统函数sendfile读取并发送该文件
-//成功返回1/2 失败返回0/-1   0=写未完成 需要再次执行   -1=出错需 关闭连接
+//成功返回1/2 失败返回0/-1   
 int Writefile(off_t offset, int remaining, int sockfd, int filefd) {
-    int num = 0;//记录信号阻塞次数 防止卡住
+    int num = 0;
     if (remaining > MAX_BUF_SIZE) {
         while (1) {
             if(num > 10)
@@ -185,7 +188,7 @@ int Writefile(off_t offset, int remaining, int sockfd, int filefd) {
             if (n < 0) {
                 if (errno == EINTR) {
                     std::cout << "signal interruption." << std::endl;
-                    n++;
+                    num++;
                     continue;
                 }
                 else if (errno == EAGAIN || errno == EWOULDBLOCK) {
