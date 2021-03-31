@@ -28,24 +28,11 @@ linux下用epoll和posix实现的小项目
 	
 class serverporcess 服务器所有操作都在该类中进行 并保存了需要的数据
 --------------------
-	private
-	int epollfd 储存整个epoll列表
- 	epoll_event ev 用于修改该次触发的信息
-	func:关闭连接
-	func:重置读写缓存
-	func:epoll_event的状态
-	func:记录数据
 	
-	public
-	func:读取信息
-	func:处理信息
-	func:处理文件
-	func:发送信息/文件
-
-servhead.h
+servhead.h  该头文件包含了修改后的Socket所需要使用的主要函数
 --------------
-	头文件包含了所有的主要函数
-httphead.h
+	
+httphead.h  该头文件包含了处理http请求的的函数
 ----------------
 	struct Clientinfo 用于保存连接的对端信息
 	处理接收到的请求
