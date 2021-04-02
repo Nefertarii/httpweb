@@ -14,10 +14,12 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <cstring>
+#include <csignal>
 #include <ctime>
 #include <list>
-#include <fstream>
 #include "httphead.h"
+#include "localinfo.h"
+#include "jsonprocess.h"
 
 #define OPEN_MAX 64
 #define MAX_BUF_SIZE 16*1024
@@ -49,20 +51,20 @@ int Socket(int family, int type, int protocol) {
     int sockfd = socket(family, type, protocol);
     if (sockfd < 0) {
         err_sys("Socket error:");
-        exit(1);
+        exit(errno);
     }
     return sockfd;
 }
 void Bind(int fd, const struct sockaddr *sa, socklen_t salen) {
 	if (bind(fd, sa, salen) < 0) {
 		err_sys("Bind error:");
-        exit(1);
+        exit(errno);
     }
 }
 void Listen(int fd, int backlog) {
 	if (listen(fd, backlog) < 0) {
 		err_sys("Listen error:");
-        exit(1);
+        exit(errno);
     }
 }
 int Accept(int listenfd) {
@@ -74,7 +76,7 @@ int Accept(int listenfd) {
             if(errno == EINTR)
                 continue;
             err_sys("Accept error:");
-            exit(1);
+            exit(errno);
         }
         std::cout << "Get accept form:" << inet_ntoa(cliaddr.sin_addr) << std::endl;
         return connectfd;
@@ -84,6 +86,16 @@ int Accept(int listenfd) {
 void Close(int fd) {
     if (close(fd) < 0)
         err_sys("Close error:");
+}
+void Stop(int sig) {
+    std::cout << "Interrupt signal (" << sig << ") received.\n"
+              << std::endl;
+    if (sig == SIGINT) {
+        for (int i = 0; i != MAX_CLI; i++) {
+            ;
+        }
+        exit(sig);
+    }
 }
 void Setnoblocking(int fd) {
     int flag = fcntl(fd, F_GETFL, 0);
@@ -98,7 +110,7 @@ void Setreuseaddr(int fd) {
     }
 }
 void Setbuffer(int fd) {
-    int RecvBuf=32*1024;//设置为32K
+    int RecvBuf=32*1024;//设置缓存为32K
     int SendBuf=32*1024;
     if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&RecvBuf, sizeof(int)) < 0) {
         err_sys("Setbuffer error:");
@@ -139,8 +151,7 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
     int filestat;
     const char *tmp_char = filename.c_str();
     cli->filefd = open(tmp_char, O_RDONLY);
-    if(cli->filefd < 0) {
-        std::cout << "Not this file!" << std::endl;
+    if(cli->filefd < 0) {  
         return 0; 
     }
     filestat = stat(tmp_char, &filestat_);
@@ -153,8 +164,8 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
 }
 //在cli中读取并传输本次所需数据的http头数据
 //成功返回1 失败返回0/-1  0=写未完成 需要再次执行   -1=出错 需关闭连接
-int Writehead(std::string httphead,int sockfd) {
-    const char *tmp_char = httphead.c_str();
+int Write(std::string info,int sockfd) {
+    const char *tmp_char = info.c_str();
     int num = 0;//记录信号阻塞次数 防止卡住
     while(1) {
         if(num > 10)

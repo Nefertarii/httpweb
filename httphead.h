@@ -1,26 +1,25 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
+//httphead bodyjson remaining send filefd在每次写完成后处理
+//session sockfd在关闭时处理
 struct Clientinfo {
     std::string httphead;
-    int sockfd;
+    std::string bodyjson;
     int remaining;
     int send;
     int filefd;
-    Clientinfo() {
-        httphead;
-        sockfd;
-        remaining;
-        send;
-        filefd;
-    }
+    int sockfd;
+    bool session;
     Clientinfo operator=(struct Clientinfo tmp_) {
         struct Clientinfo tmp;
         tmp.httphead = tmp_.httphead;
+        tmp.bodyjson = tmp_.bodyjson;
         tmp.sockfd = tmp_.sockfd;
         tmp.remaining = tmp_.remaining;
         tmp.send = tmp_.send;
         tmp.filefd = tmp_.filefd;
+        tmp.session = tmp_.session;
         return tmp;
     }
 };
@@ -40,7 +39,7 @@ enum STATE_CODE
 
     Bad_Request = 400,
     Unauthorized = 401,
-    Forbidden = 403,
+    Forbidden = 403,//权限不足
     Not_Found = 404,
 
     Unsupported_Media_Type = 415,
@@ -99,28 +98,45 @@ std::string Filetype(std::string filename) {
     else if(suffix==".png")
         return "image/png";
     else if(suffix==".svg")
-        return "image/svg";
+        return "image/svg+xml";
     else if(suffix==".ico")
         return "image/x-icon";
     else
         return "text/plain";
 }
-void Httpprocess(std::string httphead,std::string *filename) {
-    //if(httphead->find_first_of("GET")) {
+
+//请求类型为GET  info里写入文件名
+//请求类型为POST info里写入读到的登录信息
+std::string Httpprocess(std::string httphead,std::string *info) {
+    if (httphead.find_first_of("GET") == 0) {
         int beg = 5, end = 0;
         while (end < 100) {
             if (httphead[end + beg] == ' ')
                 break;
             end++;
         }
-        if(end==0)
-            *filename = "index.html";
-        else
-            filename->assign(httphead, beg, end);
-    //}
-    //else if(httphead.find_first_of("POST")) 
+        if(end==0) {
+            *info = "index.html";
+        }
+        else {
+            info->assign(httphead, beg, end);
+        }
+        return "GET";
+    }
+    else if(httphead.find_first_of("POST") == 0) {
+        int beg = 0, end = httphead.length();
+        while (beg < 200) {
+            if (httphead[end - beg] == '\n')
+                break;
+            beg++;
+        }
+        info->assign(httphead, (end - beg + 1), beg);
+        return "POST";
+    }
+    return "ERROR";
 }
-void Successhead(std::string filename, struct Clientinfo *cli) {
+//请求成功http头 200
+void Successrequset(std::string filename, struct Clientinfo *cli) {
     cli->httphead.clear();
     cli->httphead += "HTTP/1.1 200 OK\r\n";                       
     cli->httphead += "Constent_Charset:utf-8\r\n";                
@@ -134,11 +150,69 @@ void Successhead(std::string filename, struct Clientinfo *cli) {
     cli->httphead += "\r\n";                                      
     //cli->httphead += "Cache-Control: no-cache max-age=0\r\n";
     cli->httphead += GMTime();
-    cli->httphead += "Server:Gwc/0.5\r\n\r\n";
+    cli->httphead += "Server:Gwc/0.7 (Centos)\r\n\r\n";
 
     cli->remaining += cli->httphead.length();
 }
+std::string Statecode(int state) {
+    switch (state)
+    {
+    case 400:
+        return " bad_request\r\n";
+    case 403:
+        return " forbidden\r\n";
+    case 404:
+        return " not_found\r\n";
+    default:
+        return " \r\n";
+    }
+}
+//请求异常http头
+void Badrequset(int state,struct Clientinfo *cli) {
+    cli->httphead.clear();
+    cli->httphead += "HTTP/1.1 ";
+    cli->httphead += std::to_string(state);
+    cli->httphead += Statecode(state);
+    cli->httphead += "Constent_Charset:utf-8\r\n";        
+    cli->httphead += "Content-Language:zh-CN\r\n";
+    cli->httphead += "Content-Type:html/text\r\n";                                                              
+    cli->httphead += "Connection:Keep-alive\r\n";                 
+    cli->httphead += "Content-Length:";                           
+    cli->httphead += std::to_string(cli->remaining);
+    cli->httphead += "\r\n";    
+    cli->httphead += GMTime();
+    cli->httphead += "Server:Gwc/0.7 (Centos)\r\n\r\n";                                                                   
+    //cli->httphead += "Cache-Control: no-cache max-age=0\r\n";
 
-
+    cli->remaining += cli->httphead.length();
+}
+//对body中的数据的截取、判断
+//成功返回1 否则返回-1
+int Postprocess(std::string userinfo,std::string *username, std::string *password) {
+    int beg = 9, end = 0;
+    while (1) {
+        if (userinfo[beg + end] == '&') {
+            username->assign(userinfo, beg, end);
+            break;
+        }
+        if (end == 51) {//最长读取50位名字/邮箱
+            return -1;
+        }
+        end++;
+    }
+    beg = beg + end + 10;
+    end = 0;
+    while(1) {
+        if (userinfo[beg + end] == '&') {
+            password->assign(userinfo, beg, end);
+            break;
+        }
+        if (end == 21) {//最长读取20位密码
+            return -1;
+        }
+        end++;
+    }
+    return 1;
+}
 
 #endif

@@ -9,6 +9,7 @@ class Server {
         struct Clientinfo clients[MAX_CLI];
         struct epoll_event ev, events[MAX_CLI];
         void Record();
+        
         void TCPlisten(int port);
         void Createclient(int fd);
         void Closeclient(Clientinfo *cli);
@@ -59,8 +60,9 @@ void Server::Closeclient(Clientinfo *cli) {
     Close(cli->sockfd);
     epoll_ctl(epollfd, EPOLL_CTL_DEL, cli->sockfd, nullptr);
     cli->sockfd = -1;
+    cli->session = false;
     Resetinfo(cli);
-    std::cout << "\tClose client " << std::endl;
+    std::cout << "Close client " << std::endl;
 }
 void Server::Record() {}
 void Server::Epollwrite(Clientinfo *cli) {
@@ -83,6 +85,7 @@ void Server::Epolladd(int fd, Clientinfo *cli) {
 }
 void Server::Resetinfo(Clientinfo *cli) {
     cli->httphead.clear();
+    cli->bodyjson.clear();
     cli->remaining = 0;
     cli->send = 0;
     cli->filefd = -1;
@@ -95,12 +98,13 @@ Server::Server(int port) {
         clients[i].remaining = 0;
         clients[i].send = 0;
         clients[i].filefd = -1;
+        clients[i].session = false;
     }
+    //signal(SIGINT, Server::Stop);
+    signal(SIGPIPE, SIG_IGN);
     epollfd = epoll_create(MAX_CLI);
     TCPlisten(port);
     Epolladd(listenfd, nullptr);
-    //signal(SIGCHLD, SIG_IGN);
-    signal(SIGPIPE, SIG_IGN);
     /*sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGPIPE);
@@ -131,6 +135,7 @@ void Server::Start() {
         }
     }
 }
+
 void Server::Acceptconnect() {
     int connectfd = Accept(listenfd);
     Createclient(connectfd);
@@ -138,11 +143,10 @@ void Server::Acceptconnect() {
 void Server::Socketwrite(void *cli_p) {
     Clientinfo *cli = (Clientinfo *)cli_p;
     //head
-    std::cout << "Write head";
-    int n = Writehead(cli->httphead, cli->sockfd);
+    std::cout << "Write head... ";
+    int n = Write(cli->httphead, cli->sockfd);
     if(n == -1) {
         Closeclient(cli);
-        Resetinfo(cli);
     }
     else if (n == 0) {
         std::cout << "kernel cache is full. do again" << std::endl;
@@ -150,68 +154,116 @@ void Server::Socketwrite(void *cli_p) {
     else {
         cli->remaining -= cli->httphead.length();
         cli->httphead.clear();
-        std::cout << "   done.";
+        std::cout << "done.";
     }
-    //file
+    //file or json
     if (cli->remaining > 0) {
-        std::cout << " Write file";
-        while(1) {
-            int n = Writefile(cli->send, cli->remaining, cli->sockfd, cli->filefd);
-            if (n == 0) {
-                std::cout << "kernel cache is full/Write not over do again" << std::endl;
-            }
-            else if (n == -1) {
+        if (cli->bodyjson.length() > 0) {
+            std::cout << " Write json... ";
+            int n = Write(cli->httphead, cli->sockfd);
+            if(n == -1) {
                 Closeclient(cli);
-                cli->sockfd = -1;
-                Resetinfo(cli);
             }
-            else if(n == 2){
-                cli->send += MAX_BUF_SIZE;
-                cli->remaining -= cli->send;
-                continue;
+            else if (n == 0) {
+                std::cout << "kernel cache is full. do again" << std::endl;
             }
             else {
-                Resetinfo(cli);
-                Epollread(cli);
-                std::cout << "   done." << std::endl;
-                break;
+                cli->remaining -= cli->bodyjson.length();
+                cli->bodyjson.clear();
+                std::cout << "done.";
+            }
+        }
+        if(cli->filefd != -1) {
+            std::cout << " Write file... ";
+            while(1) {
+                int n = Writefile(cli->send, cli->remaining, cli->sockfd, cli->filefd);
+                if (n == 0) {
+                    std::cout << "kernel cache is full/Write not over do again" << std::endl;
+                }
+                else if (n == -1) {
+                    Closeclient(cli);
+                }
+                else if(n == 2){
+                    cli->send += MAX_BUF_SIZE;
+                    cli->remaining -= cli->send;
+                    continue;
+                }
+                else {
+                    Resetinfo(cli);
+                    Epollread(cli);
+                    std::cout << "done." << std::endl;
+                    break;
+                }
             }
         }
     }
+    else {
+        Epollread(cli);
+    }
+    
 }
 void Server::Socketread(void *cli_p) {
     //Clientinfo *cli = static_cast<Clientinfo *>(malloc(sizeof(cli_p)));
     Clientinfo *cli = (Clientinfo *)cli_p;
+    std::cout << "Read... ";
     int readsize = Read(cli->sockfd, &readbuf);
     if (readsize <= 0) {
         if (readsize < 0) {
             Closeclient(cli);
         }
         else {
-            cli->httphead = "HTTP/1.1 400 Bad_Request";
-            cli->remaining = cli->httphead.length();
+            Badrequset(404, cli);
+            Readfile("Page404.html", cli);
             Epollwrite(cli);
         }
     }
     else { //读取信息处理 cli cache的大小也在此处设置
-        std::string filename;
-        Httpprocess(readbuf, &filename);
-        std::cout << "  Filetype: " << Filetype(filename)
-                  << "  File:" << filename
-                  << " Reading...";
-        if (Readfile(filename, cli)) {
-            std::cout << "  success!" << std::endl;
-            Successhead(filename, cli);
+        std::string info;
+        std::string type = Httpprocess(readbuf, &info);
+        if(type=="GET") {
+            std::cout << "OK. Request type:GET File:" << info;
+            int n = Readfile(info, cli);
+            if (n == 1) {
+                std::cout 
+                << " success!" << std::endl;
+                Successrequset(info, cli);
+                Epollwrite(cli);
+            }
+            else if (n == 0) {
+                std::cout << "Not this file!" << std::endl;
+                Badrequset(404, cli);
+                Readfile("Page404.html", cli);
+                Epollwrite(cli);
+            }
+            else {
+                Closeclient(cli);
+            }
+        }
+        else if(type=="POST") {
+            std::string username, password;
+            if(Postprocess(info,&username,&password)) {
+                if(Finduserinfo(username, password)) {
+                    cli->bodyjson = Jsonprocess(1);
+                    cli->remaining += cli->bodyjson.length();
+                }
+                else {
+                    ;
+                }
+            }
+            else {
+                ;
+            }
+            Epollwrite(cli);
         }
         else {
-            std::cout << "  fail!" << std::endl;
-            cli->httphead = "HTTP/1.1 400 Bad_Request";
-            cli->remaining = cli->httphead.length();
+            Closeclient(cli);
         }
-        Epollwrite(cli);
     }
 }
 Server::~Server() {
+    for (int i = 0; i != MAX_CLI; i++) {
+            Close(clients[i].sockfd);
+        }
     close(listenfd);
     close(epollfd);
     std::cout << "Server close." << std::endl;
