@@ -23,19 +23,19 @@ linux下用epoll和posix实现的小项目
 				-发送文件
 				-更改该连接状态至待读取
 
-httphead.h   用于处理http请求 和添加需发送的http头
+[httphead.h](https://github.com/Nefertarii/httpweb/blob/main/httphead.h)   用于处理http请求 和添加需发送的http头
 -----------
 
-servhead.h   包含了修改后的Socket函数以及其他需要使用的函数
+[servhead.h](https://github.com/Nefertarii/httpweb/blob/main/servhead.h)   包含了修改后的Socket函数以及其他需要使用的函数
 ------------
 
-serverprocess.h   服务器所有操作都在该类中进行
+[serverprocess.h](https://github.com/Nefertarii/httpweb/blob/main/serverprocess.h)   服务器所有操作都在该类中进行
 --------------
 
-jsonprocess.h   今后的JSON处理都在此文件中添加
+[jsonprocess.h](https://github.com/Nefertarii/httpweb/blob/main/jsonprocess.h)  今后的JSON处理都在此文件中添加
 --------------
 
-localinfo.h    暂用本地文件代替mysql读取信息
+[localinfo.h](https://github.com/Nefertarii/httpweb/blob/main/localinfo.h)    暂用本地文件代替mysql读取信息
 -------------
 
 
