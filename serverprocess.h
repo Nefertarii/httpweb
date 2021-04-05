@@ -198,14 +198,14 @@ void Server::Socketwrite(void *cli_p) {
     Clientinfo *cli = (Clientinfo *)cli_p;
     std::cout << "Write head... ";
     Sendhead(cli);
-    if (cli->remaining > 0) {        
-        if (cli->bodyjson.length() > 0) {
-            std::cout << " Write json... ";
-            Sendjson(cli);
-        }
+    if (cli->remaining > 0) {           
         if(cli->filefd != -1) {
             std::cout << " Write file... ";
             Sendfile(cli);
+        }
+        if (cli->bodyjson.length() > 0) {
+            std::cout << " Write json... ";
+            Sendjson(cli);
         }
     }
     else {
@@ -226,25 +226,25 @@ void Server::Socketread(void *cli_p) {
             Closeclient(cli);
         }
         else {
-            Badrequset(404, cli);
+            Responehead(404, "Page404.html", cli);
             Readfile("Page404.html", cli);
             Epollwrite(cli);
         }
     }
     else { //读取信息处理 
         std::string info;
-        std::string type = Httpprocess(readbuf, &info);
-        if(type=="GET") {
-            std::cout << "OK. Request type:GET File:" << info;
+        std::string method = Httpprocess(&readbuf, &info);
+        if(method == "GET") {
+            std::cout << "OK. Request method:GET File:" << info;
             int n = Readfile(info, cli);
             if (n == 1) {
                 std::cout << " open success!" << std::endl;
-                Successrequset(info, cli);
+                Responehead(200, info, cli);
                 Epollwrite(cli);
             }
             else if (n == 0) {
                 std::cout << "Not this file!" << std::endl;
-                Badrequset(404, cli);
+                Responehead(404, "Page404.html", cli);
                 Readfile("Page404.html", cli);
                 Epollwrite(cli);
             }
@@ -252,26 +252,38 @@ void Server::Socketread(void *cli_p) {
                 Closeclient(cli);
             }
         }
-        else if(type=="POST") {
+        else if(method == "POST") {
+            std::cout << "OK. Request method:POST localtion:" << readbuf
+                      << " userinfo:";
             std::string username, password;
-            if(Postprocess(info,&username,&password)) {
-                Successrequset("user.data", cli);
-                if(Finduserinfo(username, password)) {
-                    std::cout << "Post name=" << username
-                              << " password=" << password << std::endl;
-                    cli->bodyjson = Jsonprocess(1);
-                    cli->remaining += cli->bodyjson.length();
+            if(readbuf == "login") {            //普通登录
+                if(Postprocess(info,&username,&password)) { //输入合法
+                    if(Finduserinfo(username, password)) {  //用户名密码正确
+                        std::cout << "username=" << username
+                                  << " password=" << password << std::endl;
+                        Responehead(200, " ", cli);
+                        Jsonprocess(1, cli);
+                    }
+                    else { //输入非法
+                        Responehead(401, "Page401.html", cli);
+                        Readfile("Page401.html", cli);
+                    }
                 }
-                else {
-                    ;
+                else { //输入不合法
+                    Responehead(401, "Page401.html", cli);
+                    Readfile("Page401.html", cli);
                 }
             }
-            else {
+            else if(readbuf == "admin_login") { //后台登录
                 ;
+            }
+            else {                              //地点出错
+                Responehead(403, "Page403.html", cli);
+                Readfile("Page403.html", cli);
             }
             Epollwrite(cli);
         }
-        else {
+        else if(method == "ERROR"){
             std::cout << "Not GET or POST" << std::endl;
             Closeclient(cli);
         }

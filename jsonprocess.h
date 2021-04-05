@@ -2,15 +2,16 @@
 #define JSONPROCESS_H_
 
 //根据状态码不同写入不同的json 
-std::string Jsonprocess(int state) {
+void Jsonprocess(int state,Clientinfo *cli) {
     //判断 find name 成功 添加json
     if (state) {
-        return "\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"";
+        cli->bodyjson =  "\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"";
     }
     //失败
     else {
-        return "\"session\":\"fail\"";
+        cli->bodyjson =  "\"session\":\"fail\"";
     }
+    cli->remaining += cli->bodyjson.length();
 }
 
 
