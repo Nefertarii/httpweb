@@ -7,7 +7,7 @@
 //用户名找到且密码正确返回1 否则返回-1
 int Finduserinfo(std::string username, std::string password)
 {
-    std::ifstream userinfo("info/userinfo.txt", std::ios::in);
+    std::ifstream userinfo("Info/userinfo.txt", std::ios::in);
     char tmp[50] = {0};
     if (!userinfo) {
         return -1;

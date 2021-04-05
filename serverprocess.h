@@ -18,6 +18,10 @@ class Server {
         void Epolladd(int fd, Clientinfo *cli);
         void Resetinfo(Clientinfo *cli);
 
+        void Sendhead(Clientinfo *cli);
+        void Sendjson(Clientinfo *cli);
+        void Sendfile(Clientinfo *cli);
+
     public:
         Server(int port_);
         void Start();
@@ -90,6 +94,56 @@ void Server::Resetinfo(Clientinfo *cli) {
     cli->send = 0;
     cli->filefd = -1;
 }
+void Server::Sendhead(Clientinfo *cli) {
+    int n = Write(cli->httphead, cli->sockfd);
+    if(n == -1) {
+        Closeclient(cli);
+    }
+    else if (n == 0) {
+        std::cout << "kernel cache is full. do again" << std::endl;
+    }
+    else {
+        cli->remaining -= cli->httphead.length();
+        cli->httphead.clear();
+        std::cout << "done.";
+    }
+}
+void Server::Sendjson(Clientinfo *cli) {
+    int n = Write(cli->bodyjson, cli->sockfd);
+    if(n == -1) {
+        Closeclient(cli);
+    }
+    else if (n == 0) {
+        std::cout << "kernel cache is full. do again" << std::endl;
+    }
+    else {
+        cli->remaining -= cli->bodyjson.length();
+        cli->bodyjson.clear();
+        std::cout << "done.";
+    } 
+}
+void Server::Sendfile(Clientinfo *cli) {
+    while(1) {
+        int n = Writefile(cli->send, cli->remaining, cli->sockfd, cli->filefd);
+        if (n == 0) {
+            std::cout << "kernel cache is full/Write not over do again" << std::endl;
+        }
+        else if (n == -1) {
+            Closeclient(cli);
+        }
+        else if(n == 2){
+            cli->send += MAX_BUF_SIZE;
+            cli->remaining -= MAX_BUF_SIZE;
+            continue;
+        }
+        else {
+            Resetinfo(cli);
+            Epollread(cli);
+            std::cout << "done." << std::endl;
+            break;
+        }
+    }
+}
 
 Server::Server(int port) {
     for (int i = 0; i != MAX_CLI; i++) {
@@ -142,59 +196,16 @@ void Server::Acceptconnect() {
 }
 void Server::Socketwrite(void *cli_p) {
     Clientinfo *cli = (Clientinfo *)cli_p;
-    //head
     std::cout << "Write head... ";
-    int n = Write(cli->httphead, cli->sockfd);
-    if(n == -1) {
-        Closeclient(cli);
-    }
-    else if (n == 0) {
-        std::cout << "kernel cache is full. do again" << std::endl;
-    }
-    else {
-        cli->remaining -= cli->httphead.length();
-        cli->httphead.clear();
-        std::cout << "done.";
-    }
-    //file or json
-    if (cli->remaining > 0) {
+    Sendhead(cli);
+    if (cli->remaining > 0) {        
         if (cli->bodyjson.length() > 0) {
             std::cout << " Write json... ";
-            int n = Write(cli->httphead, cli->sockfd);
-            if(n == -1) {
-                Closeclient(cli);
-            }
-            else if (n == 0) {
-                std::cout << "kernel cache is full. do again" << std::endl;
-            }
-            else {
-                cli->remaining -= cli->bodyjson.length();
-                cli->bodyjson.clear();
-                std::cout << "done.";
-            }
+            Sendjson(cli);
         }
         if(cli->filefd != -1) {
             std::cout << " Write file... ";
-            while(1) {
-                int n = Writefile(cli->send, cli->remaining, cli->sockfd, cli->filefd);
-                if (n == 0) {
-                    std::cout << "kernel cache is full/Write not over do again" << std::endl;
-                }
-                else if (n == -1) {
-                    Closeclient(cli);
-                }
-                else if(n == 2){
-                    cli->send += MAX_BUF_SIZE;
-                    cli->remaining -= cli->send;
-                    continue;
-                }
-                else {
-                    Resetinfo(cli);
-                    Epollread(cli);
-                    std::cout << "done." << std::endl;
-                    break;
-                }
-            }
+            Sendfile(cli);
         }
     }
     else {
@@ -205,8 +216,11 @@ void Server::Socketwrite(void *cli_p) {
 void Server::Socketread(void *cli_p) {
     //Clientinfo *cli = static_cast<Clientinfo *>(malloc(sizeof(cli_p)));
     Clientinfo *cli = (Clientinfo *)cli_p;
-    std::cout << "Read... ";
+    std::cout << "Read ... ";
     int readsize = Read(cli->sockfd, &readbuf);
+    std::cout << std::endl
+              << readbuf
+              << std::endl;
     if (readsize <= 0) {
         if (readsize < 0) {
             Closeclient(cli);
@@ -217,15 +231,14 @@ void Server::Socketread(void *cli_p) {
             Epollwrite(cli);
         }
     }
-    else { //读取信息处理 cli cache的大小也在此处设置
+    else { //读取信息处理 
         std::string info;
         std::string type = Httpprocess(readbuf, &info);
         if(type=="GET") {
             std::cout << "OK. Request type:GET File:" << info;
             int n = Readfile(info, cli);
             if (n == 1) {
-                std::cout 
-                << " success!" << std::endl;
+                std::cout << " open success!" << std::endl;
                 Successrequset(info, cli);
                 Epollwrite(cli);
             }
@@ -242,7 +255,10 @@ void Server::Socketread(void *cli_p) {
         else if(type=="POST") {
             std::string username, password;
             if(Postprocess(info,&username,&password)) {
+                Successrequset("user.data", cli);
                 if(Finduserinfo(username, password)) {
+                    std::cout << "Post name=" << username
+                              << " password=" << password << std::endl;
                     cli->bodyjson = Jsonprocess(1);
                     cli->remaining += cli->bodyjson.length();
                 }
@@ -256,6 +272,7 @@ void Server::Socketread(void *cli_p) {
             Epollwrite(cli);
         }
         else {
+            std::cout << "Not GET or POST" << std::endl;
             Closeclient(cli);
         }
     }
