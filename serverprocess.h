@@ -61,12 +61,13 @@ void Server::Createclient(int connectfd) {
     
 }
 void Server::Closeclient(Clientinfo *cli) {
-    Close(cli->sockfd);
+    shutdown(cli->sockfd, SHUT_RDWR);
     epoll_ctl(epollfd, EPOLL_CTL_DEL, cli->sockfd, nullptr);
     cli->sockfd = -1;
     cli->session = false;
     Resetinfo(cli);
     std::cout << "Close client " << std::endl;
+    Close(cli->sockfd);
 }
 void Server::Record() {}
 void Server::Epollwrite(Clientinfo *cli) {
@@ -156,13 +157,16 @@ Server::Server(int port) {
     }
     //signal(SIGINT, Server::Stop);
     signal(SIGPIPE, SIG_IGN);
+    signal(SIGINT, Stop);
     epollfd = epoll_create(MAX_CLI);
     TCPlisten(port);
     Epolladd(listenfd, nullptr);
-    /*sigset_t set;
+    /*
+    sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGPIPE);
-    sigprocmask(SIG_BLOCK, &set, NULL);*/
+    sigprocmask(SIG_BLOCK, &set, NULL);
+    */
     std::cout << "Initialisation complete" << std::endl;
 }
 void Server::Start() {
@@ -261,8 +265,8 @@ void Server::Socketread(void *cli_p) {
                     if(Finduserinfo(username, password)) {  //用户名密码正确
                         std::cout << "username=" << username
                                   << " password=" << password << std::endl;
-                        Responehead(200, " ", cli);
                         Jsonprocess(1, cli);
+                        Responehead(200, "userdata.js", cli);
                     }
                     else { //输入非法
                         Responehead(401, "Page401.html", cli);

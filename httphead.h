@@ -113,6 +113,7 @@ std::string GMTime() {
     GMT = "Data:" + GMTWeek + ", " + std::to_string(GMTDay) + " " + GMTMonth + " " + std::to_string(GMTYear) + " " + GMTime + " GMT\r\n";
     return GMT;
 }
+
 std::string Filetype(std::string filename) {
     int index = filename.length();
     while(index>0) {
@@ -142,6 +143,7 @@ std::string Filetype(std::string filename) {
 //请求类型为GET  info里写入文件名
 //请求类型为POST info里写入读到的登录信息 httphead截取为请求的位置
 std::string Httpprocess(std::string *httphead,std::string *info) {
+    std::string DIR = "/home/ftp_dir/Webserver/Blog/";
     if (httphead->find_first_of("GET") == 0) {
         int beg = 5, end = 0;
         while (end < 100) {
@@ -149,11 +151,11 @@ std::string Httpprocess(std::string *httphead,std::string *info) {
                 break;
             end++;
         }
-        if(end==0) {
-            *info = "index.html";
+        if(end == 0) {
+            *info = DIR + "index.html";
         }
         else {
-            info->assign(*httphead, beg, end);
+            *info = DIR + info->assign(*httphead, beg, end);
         }
         return "GET";
     }
@@ -185,60 +187,6 @@ std::string Httpprocess(std::string *httphead,std::string *info) {
     return "ERROR";
 }
 
-std::string Headstate(int state) {
-    switch (state)
-    {
-    case StatusOK:                  //200
-        return " OK\r\n";
-    case StatusBadRequest:          //400
-        return " Bad Request\r\n";
-    case StatusUnauthorized:        //401
-        return " Unauthorized\r\n";
-    case StatusForbidden:           //403
-        return " Forbidden\r\n";
-    case StatusNotFound:            //404
-        return " Not Found\r\n";
-    default:
-        return " \r\n";
-    }
-}
-
-//state状态码 info根据需要传入文件名
-void Responehead(int state, std::string info, Clientinfo *cli) {
-    
-    cli->httphead += "HTTP/1.1 ";
-    cli->httphead += std::to_string(state);
-    cli->httphead += Headstate(state);
-    cli->httphead += "Constent_Charset:utf-8\r\n";                
-    cli->httphead += "Content-Language:zh-CN\r\n";
-    cli->httphead += "Connection:Keep-alive\r\n";
-
-    if(state == StatusOK) {                 //200
-        if (cli->filefd > 0) {
-            cli->httphead += "Content-Type:";                             
-            cli->httphead += Filetype(info);
-            cli->httphead += "\r\n";
-        }
-        else if (cli->bodyjson.length() > 0) {
-            cli->httphead += "Content-Type:application/x-www-form-urlencoded\r\n";
-        }
-    }
-    else {
-        cli->httphead += "Content-Type:";                             
-        cli->httphead += Filetype(info);
-        cli->httphead += "\r\n";
-    }
-    cli->httphead += "Content-Length:";
-    cli->httphead += std::to_string(cli->remaining);
-    cli->httphead += "\r\n";
-    //cli->httphead += "cache-control:no-cache\r\n";
-    cli->httphead += GMTime();
-    cli->httphead += "Server:Gwc/0.8 (C++)\r\n\r\n";
-    
-
-    cli->remaining += cli->httphead.length();
-}
-
 //对传入的登录数据进行截取、判断
 //成功返回1 否则返回-1
 int Postprocess(std::string userinfo,std::string *username, std::string *password) {
@@ -268,4 +216,59 @@ int Postprocess(std::string userinfo,std::string *username, std::string *passwor
     return 1;
 }
 
+std::string Headstate(int state) {
+    switch (state)
+    {
+    case StatusOK:                  //200
+        return " OK\r\n";
+    case StatusBadRequest:          //400
+        return " Bad Request\r\n";
+    case StatusUnauthorized:        //401
+        return " Unauthorized\r\n";
+    case StatusForbidden:           //403
+        return " Forbidden\r\n";
+    case StatusNotFound:            //404
+        return " Not Found\r\n";
+    default:
+        return " \r\n";
+    }
+}
+
+//state状态码 info根据需要传入文件名
+void Responehead(int state, std::string info, Clientinfo *cli) {
+    
+    cli->httphead += "HTTP/1.1 ";
+    cli->httphead += std::to_string(state);
+    cli->httphead += Headstate(state);
+    cli->httphead += "Constent_Charset:utf-8\r\n";                
+    cli->httphead += "Content-Language:zh-CN\r\n";
+    cli->httphead += "Connection:Keep-alive\r\n";
+    cli->httphead += "Content-Type:";                             
+    cli->httphead += Filetype(info);
+    cli->httphead += "\r\n";
+    /*if(state == StatusOK) {                 //200
+        if (cli->filefd > 0) {
+            cli->httphead += "Content-Type:";                             
+            cli->httphead += Filetype(info);
+            cli->httphead += "\r\n";
+        }
+        else if (cli->bodyjson.length() > 0) {
+            cli->httphead += "Content-Type:application/x-www-form-urlencoded\r\n";
+        }
+    }
+    else {
+        cli->httphead += "Content-Type:";                             
+        cli->httphead += Filetype(info);
+        cli->httphead += "\r\n";
+    }*/
+    cli->httphead += "Content-Length:";
+    cli->httphead += std::to_string(cli->remaining);
+    cli->httphead += "\r\n";
+    //cli->httphead += "cache-control:no-cache\r\n";
+    cli->httphead += GMTime();
+    cli->httphead += "Server:Gwc/0.8 (C++)\r\n\r\n";
+    
+
+    cli->remaining += cli->httphead.length();
+}
 #endif

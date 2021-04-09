@@ -2,8 +2,8 @@
 #define SERVHEAD_H_
 
 #include <iostream>
-#include <sys/types.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/sendfile.h>
@@ -29,7 +29,6 @@
 #define MAX_CLI 50      //maximum number of client connections
 #define LISTEN_WAIT 20
 #define INFTIM (-1)
-#define DIR "/home/ftp_dir/Webserver/server/"
 
 int Socket(int family, int type, int protocol);
 void Bind(int fd, const struct sockaddr *sa, socklen_t salen);
@@ -88,7 +87,7 @@ void Close(int fd) {
         err_sys("Close error:");
 }
 void Stop(int sig) {
-    std::cout << "Interrupt signal (" << sig << ") received.\n"
+    std::cout << "\nInterrupt signal (" << sig << ") received.\n"
               << std::endl;
     if (sig == SIGINT) {
         for (int i = 0; i != MAX_CLI; i++) {

@@ -5,11 +5,11 @@
 void Jsonprocess(int state,Clientinfo *cli) {
     //ÅÐ¶Ï find name ³É¹¦ Ìí¼Ójson
     if (state) {
-        cli->bodyjson =  "\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"";
+        cli->bodyjson =  "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
     }
     //Ê§°Ü
     else {
-        cli->bodyjson =  "\"session\":\"fail\"";
+        cli->bodyjson =  "{\"session\":\"fail\"}";
     }
     cli->remaining += cli->bodyjson.length();
 }
