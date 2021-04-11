@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>加入瓦肆 创建账号</title>
+		<link type="text/css" rel="stylesheet" href="createaccount.css" />
+	</head>
+	<body>
+		<div id="head1">
+			加入瓦肆
+		</div>
+		<div id="head2">创建账号</div>
+		<div align="center">
+			<form>
+				<label>用户名</label>
+				<input name="username" type="text" id="username_input"/>
+				<label class="error" id="username_error"></label>
+				<p />
+				<label>邮箱地址</label>
+				<input name="emailaddress" type="text" id="email_input"/>
+				<label class="error" id="email_error"></label>
+				<p />
+				<label>密码</label>
+				<input name="password" type="password" id="passwd_input" />
+				<label>密码至少需要</label>
+				<label id="passwd_label">8个字符</label>
+				<p />
+				<label>验证码</label>
+				<input type="submit" value="创建账户" />
+			</form>
+		</div>
+	</body>
+	<script src="createaccount.js"></script>
+</html>
