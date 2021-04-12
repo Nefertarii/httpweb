@@ -1,5 +1,15 @@
-*
-{
+:root {
+	--border-error: #F97583;
+	--bg-error: #FFEEF0;
+	--font-error: #86181D;
+	--border-success: #34d058;
+	--bg-success: #dcffe4;
+	--font-success: #24292e;
+	--h1: #6A737D;
+	--h2: #24292E;
+}
+
+*{
 	box-sizing: border-box;
 }
 h1 {
@@ -13,124 +23,83 @@ input {
 	border-radius: 7px;
 	border: 1px solid #d8dee2;
 	background-color: #F6F8F9;
+	background-repeat: no-repeat;
+	background-position-x: 98%;
+	background-position-y: center;
 }
-
 input:focus {
 	border-color: #66afe9;
 	outline: 0;
 	box-shadow: 0 0px 5px 2px #BCC7EF;
 }
-
 input[type="submit"] {
 	height: 40px;
 	background-color: #9FB3F2;
 	/*#FFFFFF*/
 	color: #cfd9f9;
 	/*#3A5EDD*/
+	cursor: pointer;
 }
 
-label {
+dt {
 	font-family: 'Segoe UI';
 	font-weight: 600;
 	font-size: 14px;
-	color: #24292e;
-}
-
-form {
-	max-width: 544px;
+	color: var(--h2);
 	text-align: left;
-	padding: 20px;
+	padding-left: .3rem;
+	margin-top: .3rem;
+	margin-bottom: .3rem;
 }
 
-#head1 {
+.head1 {
 	text-align: center;
 	padding-top: 50px;
 	font-size: 14px;
 	font-weight: 400;
-	color: #6A737D;
+	color: var(--h1);
 	font-family: Consolas;
 }
 
-#head2 {
+.head2 {
 	text-align: center;
 	font-size: 40px;
 	line-height: 48px;
 	font-weight: 500;
-	color: #24292E;
+	color: var(--h2);
 	font-family: inter;
 }
 
-#userinput {
-
-	
-}
-#username_input {
-	background-position: right 4px center;
-	background-repeat: no-repeat;
+.input {
+	max-width: 20rem;
 }
 
-#username_error {
-	visibility:hidden;
-}
-
-#email_input {
-	background-position: right 4px center;
-	background-repeat: no-repeat;
-}
-
-#email_error {
-	visibility:hidden;
-	
-}
-
-#passwd_label {
-	font-family: 'Segoe UI';
-	font-weight: 600;
-	font-size: 14px;
-	color: #CB2431;
-}
-
-#passwd_input {
-	background-image: url("none");
-	background-position: right 4px center;
-	background-repeat: no-repeat;
-	width: 100%;
-	padding: 5px;
-	border-radius: 7px;
-	border: 1px solid #d8dee2;
-	background-color: #F6F8F9;
-}
-
-.error:before {
+.input_error:before {
 	content: "";
-	width: 0px;
-	height: 0px;
 	border-left: 5px solid transparent;
 	border-right: 5px solid transparent;
-	border-bottom: 5px solid #F97583;
+	border-bottom: 5px solid var(--border-error);
 	position: absolute;
 	top: -5px;
 	left: 5px;
 }
-
-.error {
-	border: .6px solid;
-	border-radius: 7px;
-	border-color: #F97583;
-	background-color: #FFEEF0;
-	color: #86181D;
-	font-weight: 400;
-	padding: 5px;
-	width: 20px;
-	height: 20px;
+.input_error {
+	background-color: var(--bg-error);
+	border: 0.01875rem solid var(--border-error);
+	height: 1.25rem;
 	position: relative;
-	
+	margin-top: .1rem;
+	border-radius: 0.25rem;
+	font-weight: 400;
+	font-family: "Segoe UI";
+	font-size: 0.75rem;
+	line-height: 1.125rem;
+	color: var(--font-error);
+	padding: 0.0625rem 0.1875rem;
+	visibility: hidden;
 }
-
-.error:after {
+.input_error:after {
 	content: "";
-	width: 0px;
-	height: 0px;
 	border-left: 5px solid transparent;
 	border-right: 5px solid transparent;
 	border-bottom: 5px solid #FFEEF0;
@@ -139,39 +108,56 @@ form {
 	left: 5px;
 }
 
-.success:before {
+
+.input_success:before {
 	content: "";
-	width: 0px;
-	height: 0px;
 	border-left: 5px solid transparent;
 	border-right: 5px solid transparent;
-	border-bottom: 5px solid #34d058;
+	border-bottom: 5px solid var(--border-success);
 	position: absolute;
 	top: -5px;
 	left: 5px;
 }
-
-.success {
-	border: .6px solid;
-	border-radius: 7px;
-	border-color: #34d058;
-	background-color: #dcffe4;
-	font-weight: 400;
-	padding: 5px;
-	width: 20px;
-	height: 20px;
+.input_success {
+	background-color: var(--bg-success);
+	border: 0.01875rem solid var(--border-success);
+	height: 1.25rem;
 	position: relative;
-	
+	margin-top: .1rem;
+	border-radius: 0.25rem;
+	font-weight: 400;
+	font-family: "Segoe UI";
+	font-size: 0.75rem;
+	line-height: 1.125rem;
+	color: var(--font-success);
+	padding: 0.0625rem 0.1875rem;
+	visibility: hidden;
 }
-
-.success:after {
+.input_success:after {
 	content: "";
-	width: 0px;
-	height: 0px;
 	border-left: 5px solid transparent;
 	border-right: 5px solid transparent;
-	border-bottom: 5px solid #dcffe4;
+	border-bottom: 5px solid var(--bg-success);
 	position: absolute;
 	top: -4px;
 	left: 5px;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.input_passwd_unless {
+	text-align: left;
+}
+	
