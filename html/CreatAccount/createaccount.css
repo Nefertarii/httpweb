@@ -7,6 +7,10 @@
 	--font-success: #24292e;
 	--h1: #6A737D;
 	--h2: #24292E;
+	--font: #BCC7EF;
+	--bt-bg-false: #9FB3F2;
+	--bt-bg-true: #3076df;
+	--bt-bg-true-hover: #16489e;
 }
 
 *{
@@ -32,14 +36,6 @@ input:focus {
 	outline: 0;
 	box-shadow: 0 0px 5px 2px #BCC7EF;
 }
-input[type="submit"] {
-	height: 40px;
-	background-color: #9FB3F2;
-	/*#FFFFFF*/
-	color: #cfd9f9;
-	/*#3A5EDD*/
-	cursor: pointer;
-}
 
 dt {
 	font-family: 'Segoe UI';
@@ -52,6 +48,9 @@ dt {
 	margin-bottom: .3rem;
 }
 
+.maincss {
+	min-width: 18rem;
+}
 .head1 {
 	text-align: center;
 	padding-top: 50px;
@@ -60,7 +59,6 @@ dt {
 	color: var(--h1);
 	font-family: Consolas;
 }
-
 .head2 {
 	text-align: center;
 	font-size: 40px;
@@ -68,6 +66,10 @@ dt {
 	font-weight: 500;
 	color: var(--h2);
 	font-family: inter;
+}
+.space {
+	padding-top: 0.7rem;
+	padding-bottom: 0.7rem;
 }
 
 .input {
@@ -144,20 +146,34 @@ dt {
 }
 
 
+.input_submit_false {
+	height: 40px;
+	background-color: var(--bt-bg-false);
+	/*#FFFFFF*/
+	color: var(--font);
+	/*#3A5EDD*/
+	
+}
+.input_submit_true {
+	background-color: var(--bt-bg-true);
+	height: 40px;
+	color: var(--font);
+}
+.input_submit_true:hover {
+	background-color: var(--bt-bg-true-hover);
+	cursor: pointer;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-.input_passwd_unless {
-	text-align: left;
+.verify {
+	display: flex;
+}
+.left {
+	width: 45%;
+}
+.right {
+	float: right;
+	margin-left: 10%;
+	width: 45%;
+	background-image: none;
 }
 	
