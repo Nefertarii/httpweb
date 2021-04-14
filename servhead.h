@@ -16,13 +16,14 @@
 #include <cstring>
 #include <csignal>
 #include <ctime>
-#include <list>
+#include <random>
 #include "httphead.h"
 #include "localinfo.h"
-#include "jsonprocess.h"
+#include "jsonprocessed.h"
+#include "record.h"
 
 #define OPEN_MAX 64
-#define MAX_BUF_SIZE 16*1024
+#define MAX_BUF_SIZE 2*1024
 #define SERV_PORT 80
 #define MAXEVENTS 50
 #define TIMEOUT 0
@@ -86,31 +87,21 @@ void Close(int fd) {
     if (close(fd) < 0)
         err_sys("Close error:");
 }
-void Stop(int sig) {
-    std::cout << "\nInterrupt signal (" << sig << ") received.\n"
-              << std::endl;
-    if (sig == SIGINT) {
-        for (int i = 0; i != MAX_CLI; i++) {
-            ;
-        }
-        exit(sig);
-    }
-}
-void Setnoblocking(int fd) {
+void Setnoblocking(int fd) { //不阻塞
     int flag = fcntl(fd, F_GETFL, 0);
     if (flag >= 0) {
         fcntl(fd, F_SETFL, flag | O_NONBLOCK);
     }
 }
-void Setreuseaddr(int fd) {
+void Setreuseaddr(int fd) { //重用地址 WAIT状态
     bool Reuseaddr = true;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&Reuseaddr, sizeof(bool)) < 0) {
         err_sys("Setruseaddr error:");
     }
 }
-void Setbuffer(int fd) {
-    int RecvBuf=32*1024;//设置缓存为32K
-    int SendBuf=32*1024;
+void Setbuffer(int fd) { //设置缓存
+    int RecvBuf = MAX_BUF_SIZE; 
+    int SendBuf = MAX_BUF_SIZE;
     if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&RecvBuf, sizeof(int)) < 0) {
         err_sys("Setbuffer error:");
     }
@@ -118,10 +109,14 @@ void Setbuffer(int fd) {
         err_sys("Setbuffer error:");
     }
 }
-
+int Ramdom() {
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    return = mt() % 100;
+}
 
 //传入待处理的sockfd 将数据写入str中  
-//成功返回读取的字节数  失败返回0/-1 
+//成功返回读取的字节数  失败返回0/-1
 int Read(int fd, std::string *str) { 
     char tmp_char[MAX_BUF_SIZE] = {0};
     int readsize = read(fd, tmp_char, MAX_BUF_SIZE);
@@ -132,30 +127,33 @@ int Read(int fd, std::string *str) {
         }    
     }
     if (readsize == 0) {
-        std::cout << "Client close." << std::endl;
+        //Client close.
         return -1;
     }
     if (readsize > MAX_BUF_SIZE) {
-        std::cout << "Readbuf to Big." << std::endl;
+        //Readbuf to Big.
         return 0;
     }
     *str = tmp_char;
     return readsize;
 }
 //传入要处理的文件名字(若在其他目录传入的名字带相对路径) 
-//cli中写入读取的本地文件fd并根据文件大小设置发送的大小
-//成功返回1 失败返回0/-1
+//成功返回1 cli中写入读取的本地文件fd并根据文件大小设置剩余发送的大小
+//失败返回0/-1
 int Readfile(std::string filename, struct Clientinfo *cli) {
     struct stat filestat_;
     int filestat;
     const char *tmp_char = filename.c_str();
+
     cli->filefd = open(tmp_char, O_RDONLY);
-    if(cli->filefd < 0) {  
+    if(cli->filefd < 0) {
+        err_sys("func(Readfile) open error:");
         return 0; 
     }
+
     filestat = stat(tmp_char, &filestat_);
     if(filestat < 0) {
-        err_sys("Readfile-stat error:");
+        err_sys("func(Readfile) stat error:");
         return -1;
     }
     cli->remaining = filestat_.st_size;

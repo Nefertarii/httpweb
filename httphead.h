@@ -1,84 +1,12 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
-#define StatusContinue                        100
-#define StatusSwitchingProtocols              101   
+#include "processed.h"
+
 #define StatusOK                              200 //200 读取成功且合法
-#define StatusCreated                         201
-#define StatusAccepted                        202
-#define StatusNonAuthoritativeInfo            203
-#define StatusNoContent                       204
-#define StatusResetContent                    205
-#define StatusPartialContent                  206   
-#define StatusMultipleChoices                 300
-#define StatusMovedPermanently                301
-#define StatusFound                           302
-#define StatusSeeOther                        303
-#define StatusNotModified                     304
-#define StatusUseProxy                        305
-#define StatusTemporaryRedirect               307 
+#define StatusForbidden                       403 //403 禁止访问
 #define StatusBadRequest                      400 //400 非法请求 
-#define StatusUnauthorized                    401 //401 需要登录 登录失败
-#define StatusPaymentRequired                 402
-#define StatusForbidden                       403 //403 禁止访问 
-#define StatusNotFound                        404  
-#define StatusMethodNotAllowed                405
-#define StatusNotAcceptable                   406
-#define StatusProxyAuthRequired               407
-#define StatusRequestTimeout                  408
-#define StatusConflict                        409
-#define StatusGone                            410
-#define StatusLengthRequired                  411
-#define StatusPreconditionFailed              412
-#define StatusRequestEntityTooLarge           413
-#define StatusRequestURITooLong               414
-#define StatusUnsupportedMediaType            415
-#define StatusRequestedRangeNotSatisfiable    416
-#define StatusExpectationFailed               417
-#define StatusTeapot                          418 
-#define StatusInternalServerError             500 //500 服务器错误  
-#define StatusNotImplemented                  501
-#define StatusBadGateway                      502
-#define StatusServiceUnavailable              503
-#define StatusGatewayTimeout                  504
-#define StatusHTTPVersionNotSupported         505   
-
-// New HTTP status codes from RFC 6585. Not exported yet in Go 1.1.
-// See discussion at https://codereview.appspot.com/7678043/
-#define statusPreconditionRequired           = 428
-#define statusTooManyRequests                = 429
-#define statusRequestHeaderFieldsTooLarge    = 431
-#define statusNetworkAuthenticationRequired  = 511
-
-//#define FILE_ = 1
-//#define JSON_ = 2
-
-
-
-
-//httphead bodyjson remaining send filefd在每次写完成后处理
-//session sockfd在关闭时处理
-struct Clientinfo {
-    std::string httphead;
-    std::string bodyjson;
-    int remaining;
-    int send;
-    int filefd;
-    int sockfd;
-    bool session;
-    Clientinfo operator=(struct Clientinfo tmp_) {
-        struct Clientinfo tmp;
-        tmp.httphead = tmp_.httphead;
-        tmp.bodyjson = tmp_.bodyjson;
-        tmp.sockfd = tmp_.sockfd;
-        tmp.remaining = tmp_.remaining;
-        tmp.send = tmp_.send;
-        tmp.filefd = tmp_.filefd;
-        tmp.session = tmp_.session;
-        return tmp;
-    }
-};
-
+#define StatusUnauthorized                    401 //401 需要登录 登录失败 
 
 std::string GMTime() {
     time_t now = time(0);
@@ -142,100 +70,41 @@ std::string Filetype(std::string filename) {
 
 //请求类型为GET  info里写入文件名
 //请求类型为POST info里写入读到的登录信息 httphead截取为请求的位置
-std::string Httpprocess(std::string *httphead,std::string *info) {
-    std::string DIR = "/home/ftp_dir/Webserver/Blog/";
+std::string Httpprocessed(std::string *httphead) {
     if (httphead->find_first_of("GET") == 0) {
-        int beg = 5, end = 0;
-        while (end < 100) {
-            if (httphead[0][end + beg] == ' ')
-                break;
-            end++;
-        }
-        if(end == 0) {
-            *info = DIR + "index.html";
-        }
-        else {
-            *info = DIR + info->assign(*httphead, beg, end);
-        }
         return "GET";
     }
-    else if(httphead->find_first_of("POST") == 0) {   
-        //获取数据
-        int beg = 0, end = httphead->length();
-        while (beg < 200) {
-            if (httphead[0][end - beg] == '\n')
-                break;
-            beg++;
-        }
-        info->assign(*httphead, (end - beg + 1), beg);
-
-        //获取登录的位置.
-        beg = 6, end = 0;
-        while (end < 100) {
-            if (httphead[0][end + beg] == ' ')
-                break;
-            end++;
-        }
-        if(end==0) {
-            return "ERROR";
-        }
-        else {
-            httphead->assign(*httphead, beg, end);
-        }
+    else if(httphead->find_first_of("POST") == 0) {
         return "POST";
     }
-    return "ERROR";
+    else {
+        return "ERROR";
+    }
 }
 
-//对传入的登录数据进行截取、判断
-//成功返回1 否则返回-1
-int Postprocess(std::string userinfo,std::string *username, std::string *password) {
-    int beg = 9, end = 0;
-    while (1) {
-        if (userinfo[beg + end] == '&') {
-            username->assign(userinfo, beg, end);
+//返回处理得到的文件名
+std::string GETprocessed(std::string httphead) {
+    int beg = 5, end = 0;
+    while (end <= 100) { //读取要求的文件位置
+        if (httphead[end + beg] == ' ')
             break;
-        }
-        if (end == 51) {//最长读取50位名字/邮箱
-            return -1;
-        }
         end++;
     }
-    beg = beg + end + 10;
-    end = 0;
-    while(1) {
-        if (userinfo[beg + end] == '&') {
-            password->assign(userinfo, beg, end);
-            break;
-        }
-        if (end == 21) {//最长读取20位密码
-            return -1;
-        }
-        end++;
+    if(end == 0) { //默认返回index.html
+        return "index.html";
     }
-    return 1;
-}
-
-std::string Headstate(int state) {
-    switch (state)
-    {
-    case StatusOK:                  //200
-        return " OK\r\n";
-    case StatusBadRequest:          //400
-        return " Bad Request\r\n";
-    case StatusUnauthorized:        //401
-        return " Unauthorized\r\n";
-    case StatusForbidden:           //403
-        return " Forbidden\r\n";
-    case StatusNotFound:            //404
-        return " Not Found\r\n";
-    default:
-        return " \r\n";
+    else if(end <= 100) { //从头中截取文件名
+        return httphead.substr(beg, end);
+    }
+    else { //文件地址要求过长
+        return "ERROR";
     }
 }
 
-//state状态码 info根据需要传入文件名
-void Responehead(int state, std::string info, Clientinfo *cli) {
+
+
+//state状态码 filename仅用于Contene-type判断
+void Responehead(int state, std::string filename, Clientinfo *cli) {
     
     cli->httphead += "HTTP/1.1 ";
     cli->httphead += std::to_string(state);
@@ -244,7 +113,7 @@ void Responehead(int state, std::string info, Clientinfo *cli) {
     cli->httphead += "Content-Language:zh-CN\r\n";
     cli->httphead += "Connection:Keep-alive\r\n";
     cli->httphead += "Content-Type:";                             
-    cli->httphead += Filetype(info);
+    cli->httphead += Filetype(filename);
     cli->httphead += "\r\n";
     /*if(state == StatusOK) {                 //200
         if (cli->filefd > 0) {
@@ -266,7 +135,7 @@ void Responehead(int state, std::string info, Clientinfo *cli) {
     cli->httphead += "\r\n";
     //cli->httphead += "cache-control:no-cache\r\n";
     cli->httphead += GMTime();
-    cli->httphead += "Server:Gwc/0.8 (C++)\r\n\r\n";
+    cli->httphead += "Server:Gwc/0.9 (C++)\r\n\r\n";
     
 
     cli->remaining += cli->httphead.length();
