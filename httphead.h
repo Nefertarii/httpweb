@@ -1,12 +1,23 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
-#include "processed.h"
-
 #define StatusOK                              200 //200 读取成功且合法
 #define StatusForbidden                       403 //403 禁止访问
 #define StatusBadRequest                      400 //400 非法请求 
 #define StatusUnauthorized                    401 //401 需要登录 登录失败 
+
+
+enum Method {
+    Login_Fail = -5,
+    Reset_Fail = -4,
+    Create_Fail = -3,
+    ERROR = -1,
+    GET = 1,
+    POST = 2,
+    Login_OK = 3,
+    Reset_OK = 4,
+    Create_OK = 5
+};
 
 std::string GMTime() {
     time_t now = time(0);
@@ -68,22 +79,26 @@ std::string Filetype(std::string filename) {
         return "text/plain";
 }
 
-//请求类型为GET  info里写入文件名
-//请求类型为POST info里写入读到的登录信息 httphead截取为请求的位置
-std::string Httpprocessed(std::string *httphead) {
+//method == GET  info write file name
+//method == POST info里写入读到的登录信息 httphead截取为请求的位置
+
+
+
+//判断请求类型
+Method Httpprocess(std::string *httphead) {
     if (httphead->find_first_of("GET") == 0) {
-        return "GET";
+        return GET;
     }
     else if(httphead->find_first_of("POST") == 0) {
-        return "POST";
+        return POST;
     }
     else {
-        return "ERROR";
+        return ERROR;
     }
 }
 
 //返回处理得到的文件名
-std::string GETprocessed(std::string httphead) {
+std::string GETprocess(std::string httphead) {
     int beg = 5, end = 0;
     while (end <= 100) { //读取要求的文件位置
         if (httphead[end + beg] == ' ')
@@ -102,8 +117,6 @@ std::string GETprocessed(std::string httphead) {
 }
 
 
-
-//state状态码 filename仅用于Contene-type判断
 void Responehead(int state, std::string filename, Clientinfo *cli) {
     
     cli->httphead += "HTTP/1.1 ";
