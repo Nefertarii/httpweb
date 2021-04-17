@@ -3,45 +3,43 @@
 
 #include "httphead.h"
 
-
 class Process {
     private:
         ;
     public:
         Processed() = default;
-        int GET(Clientinfo *cli);
-        int POST(std::string readbuf, Clientinfo *cli, std::string *info, std::string *location);
+        Method GETprocess(CLIENT *cli);
+        Method POSTprocess(std::string readbuf, Clientinfo *cli, std::string *info, std::string *location);
         POSTState Choess(std::string str_state) = 0;    
-        virtual ~Processed() = default;
-
-    protected:
         std::string Serverstate(int state);
+        virtual ~Processed() = default;
 };
-std::string Process::Serverstate(int state) { //用于http头中的状态码选择
-    switch (state) { 
-    case StatusOK:                  //200
-        return " OK\r\n";
-    case StatusBadRequest:          //400
-        return " Bad Request\r\n";
-    case StatusUnauthorized:        //401
-        return " Unauthorized\r\n";
-    case StatusForbidden:           //403
-        return " Forbidden\r\n";
-    case StatusNotFound:            //404
-        return " Not Found\r\n";
-    default:
-        return " \r\n";
-    }
-}
+
 //GET只用于发送html/css/js...文件
-int Process::GET(Clientinfo *cli) {
+Method Process::GETprocess(CLIENT *cli) {
     std::string filedir = DIR;//先添加文件的绝对位置
-    std::string filename = GETprocessed(readbuf);
-    filedir += filename;
-    std::cout << "Read over. Method: GET"
-              << "   File: " << filename;
-    int n = Readfile(filedir, cli); //读取本地文件
-    if(n == 1) { //读取成功
+    std::string filename;
+    std::cout << "Processing...";
+    int beg = 5, end = 0;
+    while (end <= 100) { //开始读取要求的文件位置
+        if (httphead[end + beg] == ' ')
+            break;
+        end++;
+    }
+    if(end == 0) { //默认返回index.html
+        filename = "index.html";
+    }
+    else if(end <= 100) { //截取文件名
+        filename = httphead.substr(beg, end);
+    }
+    else { //文件地址要求过长
+        std::cout << "Read fail.";
+        return = ERROR;
+    }
+    std::cout << "Read... over. Method: GET "
+              << "File: " << filename << " ";
+
+    if(Readfile(filedir, cli)) { //读取成功
         Responehead(200, filename, cli);
         return 1;  
     }
@@ -50,7 +48,7 @@ int Process::GET(Clientinfo *cli) {
     }
 }
 //写入http头之后所带的信息 和 前端POST请求的位置
-int Process::POST(std::string readbuf, Clientinfo *cli, std::string *info, std::string *location) {
+int Process::POSTprocess(std::string readbuf, Clientinfo *cli, std::string *info, std::string *location) {
     //获取数据.
     int beg = 0, end = readbuf.length(); 
     while (beg < 200) { //读取请求的数据
@@ -87,6 +85,7 @@ int Process::POST(std::string readbuf, Clientinfo *cli, std::string *info, std::
     }
 
 }
+
 class Login :public Processed {
     public:
         Login() = default;
@@ -110,25 +109,6 @@ class Content :public Processed {
 };
 class Readcount :public Processed {
 
-}
-
-
-
-void Infoprocess(std::string location) {
-    switch (state) {
-    case StatusOK:                  //200
-        return " OK\r\n";
-    case StatusBadRequest:          //400
-        return " Bad Request\r\n";
-    case StatusUnauthorized:        //401
-        return " Unauthorized\r\n";
-    case StatusForbidden:           //403
-        return " Forbidden\r\n";
-    case StatusNotFound:            //404
-        return " Not Found\r\n";
-    default:
-        return " \r\n";
-    }
 }
 
 //对登录数据进行截取、判断
@@ -160,62 +140,4 @@ int Loginprocess(std::string userinfo,std::string *username, std::string *passwo
     return 1;
 }
 //返回验证码
-
-
-
-
-
-POSTState POSTprocessed(std::string location, std::string info, Clientinfo *cli) {
-    if(location == "login") {
-        //...
-        if (1) {
-            return Login_Done;
-        }
-        else {
-            return Login_Fail;
-        }
-    }
-    else if(location == "resetpassword") {
-        //...
-        if (1) {
-            return Reset_Done;
-        }
-        else {
-            return Reset_Fail;
-        }
-    }
-    else if(location == "createaccount") {
-        //...
-        if (1) {
-            return Create_Done;
-        }
-        else {
-            return Reset_Fail;
-        }
-    }
-    else if(location == "voteup"){
-        //...
-        if (1) {
-
-        }
-        else {
-            
-        }
-    }
-    else if(location == "votedown") {
-
-    }
-    else if(location == "comment") {
-
-    }
-    else if(location == "contentmore") {
-
-    }
-    else if(location == "readcount") {
-
-    }
-    else {
-        
-    }
-}
 #endif

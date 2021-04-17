@@ -1,10 +1,56 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
+
 #define StatusOK                              200 //200 读取成功且合法
 #define StatusForbidden                       403 //403 禁止访问
 #define StatusBadRequest                      400 //400 非法请求 
 #define StatusUnauthorized                    401 //401 需要登录 登录失败 
+#define StatusNotFound                        404 //404 访问错误
+#define CLIENT std::shared_ptr<Clientinfo>
+#define DIR  "/home/ftp_dir/Webserver/Blog/"
+#define PAGE400 "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html"
+#define PAGE401 "/home/ftp_dir/Webserver/Blog/Errorpage/Page401.html"
+#define PAGE403 "/home/ftp_dir/Webserver/Blog/Errorpage/Page403.html"
+#define PAGE404 "/home/ftp_dir/Webserver/Blog/Errorpage/Page404.html"
+
+
+struct Clientinfo {
+    std::string readbuf;
+    std::string httphead;
+    std::string info;
+    int remaining;
+    int send;
+    int filefd;
+    int sockfd;
+    bool session;
+    Clientinfo() : readbuf("none"), httphead("none"), info("none"), remaining(0), send(0), filefd(0), sockfd(0), session(false){}
+    Clientinfo(const Clientinfo &tmp) : readbuf(tmp.readbuf), httphead(tmp.httphead), info(tmp.info), remaining(tmp.remaining), send(tmp.send), filefd(tmp.filefd), sockfd(tmp.sockfd), session(tmp.session){}
+    Clientinfo &operator=(struct Clientinfo &&tmp_) {
+        readbuf = tmp.readbuf;
+        httphead = tmp_.httphead;
+        info = tmp_.info;
+        remaining = tmp_.remaining;
+        send = tmp_.send;
+        filefd = tmp_.filefd;
+        sockfd = tmp_.sockfd;
+        session = tmp_.session;
+        return *this;
+    }
+    void Resetinfo() {
+        readbuf.clear();
+        httphead.clear();
+        info.clear();
+        remaining = 0;
+        send = 0;
+        filefd = -1;
+    }
+    ~Clientinfo() = default;
+    //session sockfd在关闭时处理
+    //其余的在每次写完成后处理
+    //添加/删除数据记得修改Resetinfo()
+};
+
 
 
 enum Method {
@@ -82,8 +128,6 @@ std::string Filetype(std::string filename) {
 //method == GET  info write file name
 //method == POST info里写入读到的登录信息 httphead截取为请求的位置
 
-
-
 //判断请求类型
 Method Httpprocess(std::string *httphead) {
     if (httphead->find_first_of("GET") == 0) {
@@ -98,21 +142,20 @@ Method Httpprocess(std::string *httphead) {
 }
 
 //返回处理得到的文件名
-std::string GETprocess(std::string httphead) {
-    int beg = 5, end = 0;
-    while (end <= 100) { //读取要求的文件位置
-        if (httphead[end + beg] == ' ')
-            break;
-        end++;
-    }
-    if(end == 0) { //默认返回index.html
-        return "index.html";
-    }
-    else if(end <= 100) { //从头中截取文件名
-        return httphead.substr(beg, end);
-    }
-    else { //文件地址要求过长
-        return "ERROR";
+std::string Serverstate(int state) { //用于http头中的状态码选择
+    switch (state) { 
+    case StatusOK:                  //200
+        return " OK\r\n";
+    case StatusBadRequest:          //400
+        return " Bad Request\r\n";
+    case StatusUnauthorized:        //401
+        return " Unauthorized\r\n";
+    case StatusForbidden:           //403
+        return " Forbidden\r\n";
+    case StatusNotFound:            //404
+        return " Not Found\r\n";
+    default:
+        return " \r\n";
     }
 }
 

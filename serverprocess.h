@@ -1,6 +1,6 @@
 #ifndef SERVERPROCESSED_H_
 #define SERVERPROCESSED_H_
-#include "httphead.h"
+#include "servhead.h"
 
 class Server {//only epoll
     private:
@@ -187,11 +187,11 @@ void Server::Socketread(void *cli_p) {
         Method method = Httpprocess(cli->get()->readbuf);
         if(method == GET) {
             Process process;
-            process.GET();
+            process.GETprocess(cli);
         }
         else if (method == POST) {
             std::string info, location;
-            if(POST(readbuf, cli, &info, &location)) {  //POST sucess
+            if() {  //POST sucess
                 POSTprocessed(location,); //switch(type)
             }
             else {                                      //POST fail

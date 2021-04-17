@@ -33,56 +33,6 @@
 #define MAX_CLI 50      //maximum number of client connections
 #define LISTEN_WAIT 20
 #define INFTIM (-1)
-#define CLIENT std::shared_ptr<Clientinfo>
-#define DIR  "/home/ftp_dir/Webserver/Blog/"
-#define PAGE400 "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html"
-#define PAGE401 "/home/ftp_dir/Webserver/Blog/Errorpage/Page401.html"
-#define PAGE403 "/home/ftp_dir/Webserver/Blog/Errorpage/Page403.html"
-#define PAGE404 "/home/ftp_dir/Webserver/Blog/Errorpage/Page404.html"
-
-
-
-struct Clientinfo {
-    std::string readbuf;
-    std::string httphead;
-    std::string info;
-    int remaining;
-    int send;
-    int filefd;
-    int sockfd;
-    bool session;
-    Clientinfo() : readbuf("none"), httphead("none"), info("none"), remaining(0), send(0), filefd(0), sockfd(0), session(false){}
-    Clientinfo(const Clientinfo &tmp) : readbuf(tmp.readbuf), httphead(tmp.httphead), info(tmp.info), remaining(tmp.remaining), send(tmp.send), filefd(tmp.filefd), sockfd(tmp.sockfd), session(tmp.session){}
-    Clientinfo &operator=(struct Clientinfo &&tmp_) {
-        readbuf = tmp.readbuf;
-        httphead = tmp_.httphead;
-        info = tmp_.info;
-        remaining = tmp_.remaining;
-        send = tmp_.send;
-        filefd = tmp_.filefd;
-        sockfd = tmp_.sockfd;
-        session = tmp_.session;
-        return *this;
-    }
-    void Resetinfo() {
-        readbuf.clear();
-        httphead.clear();
-        info.clear();
-        remaining = 0;
-        send = 0;
-        filefd = -1;
-    }
-    ~Clientinfo() = default;
-    //session sockfd在关闭时处理
-    //其余的在每次写完成后处理
-    //添加/删除数据记得修改Resetinfo()
-};
-
-
-
-
-
-
 
 
 int Socket(int family, int type, int protocol);
@@ -116,12 +66,11 @@ int HTTPread(CLIENT *cli) {
 //传入要处理的文件名字(若在其他目录传入的名字带相对路径) 
 //成功返回1 cli中写入读取的本地文件fd并根据文件大小设置剩余发送的大小
 //失败返回0/-1
-int Readfile(std::string filename, struct Clientinfo *cli) {
+int Readfile(std::string filename, CLIENT *cli) {
     struct stat filestat_;
     int filestat;
     const char *tmp_char = filename.c_str();
-
-    cli->filefd = open(tmp_char, O_RDONLY);
+    cli->get()->filefd = open(tmp_char, O_RDONLY);
     if(cli->filefd < 0) {
         err_sys("func(Readfile) open error:");
         return 0; 
@@ -132,7 +81,7 @@ int Readfile(std::string filename, struct Clientinfo *cli) {
         err_sys("func(Readfile) stat error:");
         return -1;
     }
-    cli->remaining = filestat_.st_size;
+    cli->get()->remaining = filestat_.st_size;
     return 1;
 }
 //在cli中读取并传输本次所需数据的http头数据
