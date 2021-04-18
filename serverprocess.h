@@ -1,6 +1,6 @@
 #ifndef SERVERPROCESSED_H_
 #define SERVERPROCESSED_H_
-#include "servhead.h"
+#include "process.h"
 
 class Server {//only epoll
     private:
@@ -65,17 +65,17 @@ void Server::Closeclient(CLIENT *cli) {
 
 
 void Server::Record() {}
-void Server::Epollwrite(Clientinfo *cli) {
+void Server::Epollwrite(CLIENT *cli) {
     struct epoll_event ev;
     ev.events = EPOLLOUT | EPOLLET;
     ev.data.ptr = cli;
-    epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->sockfd, &ev);
+    epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->get()->sockfd, &ev);
 }
-void Server::Epollread(Clientinfo *cli) {
+void Server::Epollread(CLIENT *cli) {
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
     ev.data.ptr = cli;
-    epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->sockfd, &ev);
+    epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->get()->sockfd, &ev);
 }
 void Server::Epolladd(int fd, CLIENT *cli) {
     struct epoll_event ev;
@@ -83,7 +83,7 @@ void Server::Epolladd(int fd, CLIENT *cli) {
     ev.data.ptr = cli;
     epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
 }
-void Server::BadRequest(int pagecode, Clientinfo *cli) {
+void Server::BadRequest(int pagecode, CLIENT *cli) {
     switch (pagecode) {
         case StatusBadRequest: { //400
             Responehead(200, "Page400.html", cli);
@@ -124,14 +124,13 @@ Server::Server(int port) {
         clients[i] = std::make_shared<Clientinfo>();
     }   
     signal(SIGPIPE, SIG_IGN);
-    signal(SIGINT, Stop);
     epollfd = epoll_create(MAX_CLI);
     TCPlisten(port);
     Epolladd(listenfd, nullptr);
-    std::cout << "Initialisation complete" << std::endl;
+    std::cout << "Initialisation complete!\n";
 }
 void Server::Start() {
-    std::cout << "Server start!" << std::endl;
+    std::cout << "Server start!\n";
     for (;;) {
         int nfds = epoll_wait(epollfd, events, MAXEVENTS, TIMEOUT);
         if (nfds < 0 && errno != EINTR) {
@@ -154,19 +153,17 @@ void Server::Start() {
         }
     }
 }
-
 void Server::Acceptconnect() {
     int connectfd = Accept(listenfd);
     Createclient(connectfd);
 }
-
 void Server::Socketwrite(void *cli_p) {
-    Clientinfo *cli = (Clientinfo *)cli_p;
+    CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(cli_p);
+    std::cout << std::endl;
     std::cout << "Write head... ";
-    if() {
-
-    }
-    else {
+    HTTPwrite(cli->get()->httphead, cli->get()->sockfd);
+    Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
+    /*else {
         if (cli->remaining > 0) {  
             Sendhead(cli);         
             if(cli->filefd != -1) {
@@ -179,37 +176,45 @@ void Server::Socketwrite(void *cli_p) {
             }
         }
         Epollread(cli);
-    }
+    }*/
 }
 void Server::Socketread(void *cli_p) {
+    std::cout << std::endl;
     CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(cli_p);
-    if(HTTPread(cli)); {//read success
+    int n = HTTPread(cli->get()->sockfd, &(cli->get()->readbuf));
+    std::cout << "Read...";
+    if(n == 1) {//read success
         Method method = Httpprocess(cli->get()->readbuf);
         if(method == GET) {
-            Process process;
-            process.GETprocess(cli);
+            GETprocess(cli);
+            Epollwrite(cli);
         }
         else if (method == POST) {
             std::string info, location;
-            if() {  //POST sucess
-                POSTprocessed(location,); //switch(type)
-            }
-            else {                                      //POST fail
-                BadRequest(404, cli);
-            }
-        }
-        else {//GET,POST only
-            std::cout << "Error method.";
             Closeclient(cli);
         }
+        else {//GET,POST only
+            std::cout << " Error method.";
+            BadRequest(404, cli);
+        }
+    }
+    else if(n == 0) {
+        std::cout << " to long.";
+        BadRequest(400, cli);
+    }
+    else {
+        Closeclient(cli);
     }
 }
 Server::~Server() {
+    std::cout << "Server closeing... ";
     for (int i = 0; i != MAX_CLI; i++) {
-        shutdown(clients[i]->sockfd, SHUT_RDWR);
-        epoll_ctl(epollfd, EPOLL_CTL_DEL, clients[i]->sockfd, nullptr);
-        Close(clients[i]->sockfd);
-        clients[i] = nullptr;
+        if(clients[i]->sockfd > 0) {
+            shutdown(clients[i]->sockfd, SHUT_RDWR);
+            epoll_ctl(epollfd, EPOLL_CTL_DEL, clients[i]->sockfd, nullptr);
+            Close(clients[i]->sockfd);
+            clients[i] = nullptr;
+        }
     }
     close(listenfd);
     close(epollfd);

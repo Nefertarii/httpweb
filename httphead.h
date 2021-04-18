@@ -8,12 +8,6 @@
 #define StatusUnauthorized                    401 //401 需要登录 登录失败 
 #define StatusNotFound                        404 //404 访问错误
 #define CLIENT std::shared_ptr<Clientinfo>
-#define DIR  "/home/ftp_dir/Webserver/Blog/"
-#define PAGE400 "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html"
-#define PAGE401 "/home/ftp_dir/Webserver/Blog/Errorpage/Page401.html"
-#define PAGE403 "/home/ftp_dir/Webserver/Blog/Errorpage/Page403.html"
-#define PAGE404 "/home/ftp_dir/Webserver/Blog/Errorpage/Page404.html"
-
 
 struct Clientinfo {
     std::string readbuf;
@@ -24,10 +18,10 @@ struct Clientinfo {
     int filefd;
     int sockfd;
     bool session;
-    Clientinfo() : readbuf("none"), httphead("none"), info("none"), remaining(0), send(0), filefd(0), sockfd(0), session(false){}
+    Clientinfo() : readbuf("none"), httphead("none"), info("none"), remaining(0), send(0), filefd(0), sockfd(-1), session(false){}
     Clientinfo(const Clientinfo &tmp) : readbuf(tmp.readbuf), httphead(tmp.httphead), info(tmp.info), remaining(tmp.remaining), send(tmp.send), filefd(tmp.filefd), sockfd(tmp.sockfd), session(tmp.session){}
     Clientinfo &operator=(struct Clientinfo &&tmp_) {
-        readbuf = tmp.readbuf;
+        readbuf = tmp_.readbuf;
         httphead = tmp_.httphead;
         info = tmp_.info;
         remaining = tmp_.remaining;
@@ -58,12 +52,28 @@ enum Method {
     Reset_Fail = -4,
     Create_Fail = -3,
     ERROR = -1,
+    OK = 0,
     GET = 1,
     POST = 2,
     Login_OK = 3,
     Reset_OK = 4,
     Create_OK = 5
 };
+
+//判断请求类型
+Method Httpprocess(std::string httphead) {
+    if (httphead.find_first_of("GET") == 0) {
+        return GET;
+    }
+    else if(httphead.find_first_of("POST") == 0) {
+        return POST;
+    }
+    else {
+        return ERROR;
+    }
+}
+
+
 
 std::string GMTime() {
     time_t now = time(0);
@@ -125,22 +135,6 @@ std::string Filetype(std::string filename) {
         return "text/plain";
 }
 
-//method == GET  info write file name
-//method == POST info里写入读到的登录信息 httphead截取为请求的位置
-
-//判断请求类型
-Method Httpprocess(std::string *httphead) {
-    if (httphead->find_first_of("GET") == 0) {
-        return GET;
-    }
-    else if(httphead->find_first_of("POST") == 0) {
-        return POST;
-    }
-    else {
-        return ERROR;
-    }
-}
-
 //返回处理得到的文件名
 std::string Serverstate(int state) { //用于http头中的状态码选择
     switch (state) { 
@@ -160,40 +154,25 @@ std::string Serverstate(int state) { //用于http头中的状态码选择
 }
 
 
-void Responehead(int state, std::string filename, Clientinfo *cli) {
+void Responehead(int state, std::string filename, CLIENT *cli) {
     
-    cli->httphead += "HTTP/1.1 ";
-    cli->httphead += std::to_string(state);
-    cli->httphead += Headstate(state);
-    cli->httphead += "Constent_Charset:utf-8\r\n";                
-    cli->httphead += "Content-Language:zh-CN\r\n";
-    cli->httphead += "Connection:Keep-alive\r\n";
-    cli->httphead += "Content-Type:";                             
-    cli->httphead += Filetype(filename);
-    cli->httphead += "\r\n";
-    /*if(state == StatusOK) {                 //200
-        if (cli->filefd > 0) {
-            cli->httphead += "Content-Type:";                             
-            cli->httphead += Filetype(info);
-            cli->httphead += "\r\n";
-        }
-        else if (cli->bodyjson.length() > 0) {
-            cli->httphead += "Content-Type:application/x-www-form-urlencoded\r\n";
-        }
-    }
-    else {
-        cli->httphead += "Content-Type:";                             
-        cli->httphead += Filetype(info);
-        cli->httphead += "\r\n";
-    }*/
-    cli->httphead += "Content-Length:";
-    cli->httphead += std::to_string(cli->remaining);
-    cli->httphead += "\r\n";
+    cli->get()->httphead += "HTTP/1.1 ";
+    cli->get()->httphead += std::to_string(state);
+    cli->get()->httphead += Serverstate(state);
+    cli->get()->httphead += "Constent_Charset:utf-8\r\n";                
+    cli->get()->httphead += "Content-Language:zh-CN\r\n";
+    cli->get()->httphead += "Connection:Keep-alive\r\n";
+    cli->get()->httphead += "Content-Type:";                             
+    cli->get()->httphead += Filetype(filename);
+    cli->get()->httphead += "\r\n";
+    cli->get()->httphead += "Content-Length:";
+    cli->get()->httphead += std::to_string(cli->get()->remaining);
+    cli->get()->httphead += "\r\n";
     //cli->httphead += "cache-control:no-cache\r\n";
-    cli->httphead += GMTime();
-    cli->httphead += "Server:Gwc/0.9 (C++)\r\n\r\n";
+    cli->get()->httphead += GMTime();
+    cli->get()->httphead += "Server:Gwc/0.9 (C++)\r\n\r\n";
     
 
-    cli->remaining += cli->httphead.length();
+    cli->get()->remaining += cli->get()->httphead.length();
 }
 #endif

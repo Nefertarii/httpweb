@@ -1,16 +1,17 @@
 #include "serverprocess.h"
 
-class Server Server_GWC(SERV_PORT);
+Server Server_GWC(SERV_PORT);
 
 void Stop(int sig) { //ªÒ»°–≈∫≈ 2
     std::cout << "\nInterrupt signal (" << sig << ") received.\n"
               << std::endl;
     if (sig == SIGINT) {
-        Server_GWC.~Server();
+        //Server_GWC.~Server();
         exit(sig);
     }
 }
 
 int main(int argc, const char **argv) {
+    signal(SIGINT, Stop);
     Server_GWC.Start();
 }   

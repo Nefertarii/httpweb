@@ -1,28 +1,55 @@
 #ifndef PROCESS_H_
 #define PROCESS_H_
 
-#include "httphead.h"
+
+#include <iostream>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/epoll.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <cstring>
+#include <csignal>
+#include <ctime>
+#include <random>
+#include <vector>
+#include <memory>
+#include "localinfo.h"
+#include "jsonprocess.h"
+#include "serverprocess.h"
+#include "record.h"
+#include "servhead.h"
+
+extern const std::string DIR;
+extern const std::string PAGE400;
+extern const std::string PAGE401;
+extern const std::string PAGE403;
+extern const std::string PAGE404;
 
 class Process {
     private:
         ;
     public:
-        Processed() = default;
-        Method GETprocess(CLIENT *cli);
-        Method POSTprocess(std::string readbuf, Clientinfo *cli, std::string *info, std::string *location);
-        POSTState Choess(std::string str_state) = 0;    
+        Process() = default;
+        virtual Method Choess(std::string str_state) = 0;    
         std::string Serverstate(int state);
-        virtual ~Processed() = default;
+        virtual ~Process() = default;
 };
 
 //GET只用于发送html/css/js...文件
-Method Process::GETprocess(CLIENT *cli) {
+Method GETprocess(CLIENT *cli) {
     std::string filedir = DIR;//先添加文件的绝对位置
     std::string filename;
-    std::cout << "Processing...";
+    std::cout << "Processing method:GET...";
     int beg = 5, end = 0;
     while (end <= 100) { //开始读取要求的文件位置
-        if (httphead[end + beg] == ' ')
+        if (cli->get()->readbuf[end + beg] == ' ')
             break;
         end++;
     }
@@ -30,25 +57,28 @@ Method Process::GETprocess(CLIENT *cli) {
         filename = "index.html";
     }
     else if(end <= 100) { //截取文件名
-        filename = httphead.substr(beg, end);
+        filename = cli->get()->readbuf.substr(beg, end);
     }
-    else { //文件地址要求过长
-        std::cout << "Read fail.";
-        return = ERROR;
+    else if (end > 100)
+    { //文件地址要求过长
+        std::cout << " to long.";
+        Readfile(PAGE404, cli);
+        Responehead(200, PAGE404, cli);
+        return OK;
     }
-    std::cout << "Read... over. Method: GET "
+    std::cout << "done. "
               << "File: " << filename << " ";
-
+    filedir += filename;
     if(Readfile(filedir, cli)) { //读取成功
-        Responehead(200, filename, cli);
-        return 1;  
+        Responehead(200, filedir, cli);
     }
     else { //open/stat出错
-        return -1; 
+        return ERROR;
     }
+    return OK;
 }
 //写入http头之后所带的信息 和 前端POST请求的位置
-int Process::POSTprocess(std::string readbuf, Clientinfo *cli, std::string *info, std::string *location) {
+Method POSTprocess(std::string readbuf, CLIENT *cli, std::string *info, std::string *location) {
     //获取数据.
     int beg = 0, end = readbuf.length(); 
     while (beg < 200) { //读取请求的数据
@@ -78,38 +108,38 @@ int Process::POSTprocess(std::string readbuf, Clientinfo *cli, std::string *info
     }
 
     if (*location == "ERROR" || *info == "ERROR") {
-        return -1;
+        return ERROR;
     }
     else {
-        return 1;
+        return OK;
     }
 
 }
 
-class Login :public Processed {
+class Login :public Process {
     public:
-        Login() = default;
-        virtual POSTState Choess(std::string str_state);
-        ~Login() = default;
+        Login(){}
+        virtual Method Choess(std::string str_state);
+        ~Login(){}
 };
-class Resetpassword :public Processed {
+class Resetpassword :public Process {
 
 };
-class Createaccount :public Processed {
+class Createaccount :public Process {
 
 };
-class Vote :public Processed {
+class Vote :public Process {
     
 };
-class Comment :public Processed {
+class Comment :public Process {
 
 };
-class Content :public Processed {
+class Content :public Process {
 
 };
-class Readcount :public Processed {
+class Readcount :public Process{
 
-}
+};
 
 //对登录数据进行截取、判断
 //成功返回1 否则返回-1

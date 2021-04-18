@@ -1,29 +1,6 @@
 #ifndef SERVHEAD_H_
 #define SERVHEAD_H_
 
-#include <iostream>
-#include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/epoll.h>
-#include <sys/sendfile.h>
-#include <sys/stat.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <cstring>
-#include <csignal>
-#include <ctime>
-#include <random>
-#include <vector>
-#include <memory>
-#include "process.h"
-#include "localinfo.h"
-#include "jsonprocess.h"
-#include "record.h"
-
 #define OPEN_MAX 64
 #define MAX_BUF_SIZE 8*1024
 #define BUFFER_SIZE 2*1024
@@ -33,34 +10,43 @@
 #define MAX_CLI 50      //maximum number of client connections
 #define LISTEN_WAIT 20
 #define INFTIM (-1)
-
+extern const std::string DIR = "/home/ftp_dir/Webserver/Blog/";
+extern const std::string PAGE400 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html";
+extern const std::string PAGE401 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page401.html";
+extern const std::string PAGE403 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page403.html";
+extern const std::string PAGE404 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page404.html";
 
 int Socket(int family, int type, int protocol);
 void Bind(int fd, const struct sockaddr *sa, socklen_t salen);
 void Listen(int fd, int backlog);
 int Accept(int listenfd);
+void err_sys(const char *fmt) {
+    std::cout << fmt << strerror(errno) << std::endl;
+}
 //void Connect(int fd, const struct sockaddr *sa, socklen_t salen);
 
 
 //传入待处理的sockfd 将数据写入str中  
 //成功返回读取的字节数  失败返回0/-1
-int HTTPread(CLIENT *cli) { 
-    char tmp_char[MAX_BUF_SIZE] = {0};
-    int readsize = read(cli->get()->sockfd, tmp_char, MAX_BUF_SIZE);
+int HTTPread(int sockfd, std::string *str) { 
+    char tmp_readbuf[MAX_BUF_SIZE] = {0};
+    int readsize = read(sockfd, tmp_readbuf, MAX_BUF_SIZE);
     if (readsize < 0) {
         if(errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
             err_sys("Read error:");
-            Closeclient(cli);//读出错
+            //Closeclient(cli); 读出错
+            return -1;
         }    
     }
     else if (readsize == 0) {
         std::cout << "Client close.\n";
-        Closeclient(cli);//对端关闭 FIN
+        //Closeclient(cli); 对端关闭 FIN
+        return -1;
     }
     else if (readsize > MAX_BUF_SIZE) {
         return 0;
     }
-    *str = tmp_char;
+    *str = tmp_readbuf;
     return 1;
 }
 //传入要处理的文件名字(若在其他目录传入的名字带相对路径) 
@@ -71,7 +57,7 @@ int Readfile(std::string filename, CLIENT *cli) {
     int filestat;
     const char *tmp_char = filename.c_str();
     cli->get()->filefd = open(tmp_char, O_RDONLY);
-    if(cli->filefd < 0) {
+    if(cli->get()->filefd < 0) {
         err_sys("func(Readfile) open error:");
         return 0; 
     }
@@ -81,10 +67,10 @@ int Readfile(std::string filename, CLIENT *cli) {
         err_sys("func(Readfile) stat error:");
         return -1;
     }
-    cli->get()->remaining = filestat_.st_size;
+    cli->get()->remaining += filestat_.st_size;
     return 1;
 }
-//在cli中读取并传输本次所需数据的http头数据
+//传输本次info中的数据
 //成功返回1 失败返回0/-1  0=写未完成 需要再次执行   -1=出错 需关闭连接
 int HTTPwrite(std::string info,int sockfd) {
     const char *tmp_char = info.c_str();
@@ -110,7 +96,7 @@ int HTTPwrite(std::string info,int sockfd) {
     }
 }
 //在cli中读取保存的本地文件fd 利用系统函数sendfile读取并发送该文件
-//成功返回1/2 失败返回0/-1   
+//成功返回1 失败返回0/-1   0=写未完成 需要再次执行   -1=出错 需关闭连接
 int Writefile(off_t offset, int remaining, int sockfd, int filefd) {
     int num = 0;
     if (remaining > MAX_BUF_SIZE) {
@@ -132,7 +118,7 @@ int Writefile(off_t offset, int remaining, int sockfd, int filefd) {
                     return -1;
                 }
             }
-            return 2;
+            return 1;
         }
     }
     else {
@@ -156,9 +142,7 @@ int Writefile(off_t offset, int remaining, int sockfd, int filefd) {
         }
     }
 }
-void err_sys(const char *fmt) {
-    std::cout << fmt << strerror(errno) << std::endl;
-}
+
 
 
 int Socket(int family, int type, int protocol) {
@@ -210,7 +194,7 @@ void Setnoblocking(int fd) { //不阻塞
 void Setreuseaddr(int fd) { //重用地址 避免FIN_WAIT状态
     bool Reuseaddr = true;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&Reuseaddr, sizeof(bool)) < 0) {
-        err_sys("Setruseaddr error:");
+        err_sys("Setreuseaddr error:");
     }
 }
 void Setbuffer(int fd) { //设置缓存
@@ -226,7 +210,7 @@ void Setbuffer(int fd) { //设置缓存
 int Ramdom() {
     std::random_device rd;
     std::mt19937 mt(rd());
-    return = mt() % 100;
+    return mt() % 100;
 }
 
 

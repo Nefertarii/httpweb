@@ -45,46 +45,52 @@ struct Clientinfo {
     //修改后记得修改Server类中的Resetinfo()
 };
 
-class Processed { //各种处理
+class Process { //各种处理
     private:
         std::string readbuf;
 
     public:
-        Processed() = default;
-        virtual POSTState Choess(std::string str_state) = 0;    
-        virtual ~Processed() = default;
+        Process() = default;
+        virtual Method Choess(std::string str_state) = 0;    
+        virtual ~Process() = default;
 
     protected:
         int GET(Clientinfo *cli);
         int POST(std::string readbuf, Clientinfo *cli, std::string *info, std::string *location);
         std::string Serverstate(int state);
 };
-class Login :public Processed {
+class Login :public Process {
     public:
         Login() = default;
-        virtual POSTState Choess(std::string str_state);
+        virtual Method Choess(std::string str_state);
         ~Login() = default;
 };
-class Resetpassword :public Processed {
+class Resetpassword :public Process {
 
 };
-class Createaccount :public Processed {
+class Createaccount :public Process {
 
 };
-class Vote :public Processed {
+class Vote :public Process {
     
 };
-class Comment :public Processed {
+class Comment :public Process {
 
 };
-class Content :public Processed {
+class Content :public Process {
 
 };
-class Readcount :public Processed {
+class Readcount :public Process {
 
 };
 
 void *evptr = nullptr;
+
+int Readfile(std::string filename, CLIENT *cli) {
+    
+    return 1;
+}
+
 
 void add(CLIENT *cli) {
     evptr = cli;
@@ -95,9 +101,9 @@ void add(CLIENT *cli) {
 
 using namespace std;
 int main() {
-    string GET = "GET / HTTP/1.1\r\nHost: 39.102.58.82\r\nConnection: keep-alive\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nDNT: 1\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: zh-CN,zh;q=0.9";
-    string POST = "POST /login HTTP/1.1\r\nHost: 39.102.58.82\r\nConnection: keep-alive\r\nContent-Length: 33\r\nCache-Control: max-age=0\r\nOrigin: http://39.102.58.82\r\nUpgrade-Insecure-Requests: 1\r\nDNT: 1\r\nContent-Type: application/x-www-form-urlencoded\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36 Edg/89.0.774.63\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nReferer: http://39.102.58.82/\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6\r\n\r\nusername=123&password=123&submit=";
-    Clientinfo cli1;
+    //string GET = "GET / HTTP/1.1\r\nHost: 39.102.58.82\r\nConnection: keep-alive\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nDNT: 1\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: zh-CN,zh;q=0.9";
+    //string POST = "POST /login HTTP/1.1\r\nHost: 39.102.58.82\r\nConnection: keep-alive\r\nContent-Length: 33\r\nCache-Control: max-age=0\r\nOrigin: http://39.102.58.82\r\nUpgrade-Insecure-Requests: 1\r\nDNT: 1\r\nContent-Type: application/x-www-form-urlencoded\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36 Edg/89.0.774.63\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nReferer: http://39.102.58.82/\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6\r\n\r\nusername=123&password=123&submit=";
+    /*Clientinfo cli1;
     Clientinfo cli2;
     CLIENT cli5 = make_shared<Clientinfo>();
     cout << cli5.use_count() << endl;
@@ -109,6 +115,10 @@ int main() {
     cout << cli->get()->filefd << endl;
     evptr = nullptr;
     cli5 = nullptr;
-    cout << cli5.use_count() << endl;
+    cout << cli5.use_count() << endl;*/
+    std::string filedir;//先添加文件的绝对位置
+    std::string filename;
+    CLIENT *cli;
+    cout<<Readfile(filedir, cli);
 }
 //cli->get()
