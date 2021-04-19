@@ -2,8 +2,8 @@
 #define SERVHEAD_H_
 
 #define OPEN_MAX 64
-#define MAX_BUF_SIZE 8*1024
-#define BUFFER_SIZE 2*1024
+#define READ_BUF_SIZE 8*1024
+#define WRITE_BUF_SIZE 2*1024
 #define SERV_PORT 80
 #define MAXEVENTS 50
 #define TIMEOUT 0
@@ -29,8 +29,8 @@ void err_sys(const char *fmt) {
 //传入待处理的sockfd 将数据写入str中  
 //成功返回读取的字节数  失败返回0/-1
 int HTTPread(int sockfd, std::string *str) { 
-    char tmp_readbuf[MAX_BUF_SIZE] = {0};
-    int readsize = read(sockfd, tmp_readbuf, MAX_BUF_SIZE);
+    char tmp_readbuf[READ_BUF_SIZE] = {0};
+    int readsize = read(sockfd, tmp_readbuf, READ_BUF_SIZE);
     if (readsize < 0) {
         if(errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
             err_sys("Read error:");
@@ -43,7 +43,7 @@ int HTTPread(int sockfd, std::string *str) {
         //Closeclient(cli); 对端关闭 FIN
         return -1;
     }
-    else if (readsize > MAX_BUF_SIZE) {
+    else if (readsize > READ_BUF_SIZE) {
         return 0;
     }
     *str = tmp_readbuf;
@@ -74,14 +74,14 @@ int Readfile(std::string filename, CLIENT *cli) {
 //成功返回1 失败返回0/-1  0=写未完成 需要再次执行   -1=出错 需关闭连接
 int HTTPwrite(std::string info,int sockfd) {
     const char *tmp_char = info.c_str();
-    int num = 0;//记录信号阻塞次数 防止卡住
+    int n = 0;//记录信号阻塞次数 防止卡住
     while(1) {
-        if(num > 10)
+        if(n > 10)
             return 0;
         if (write(sockfd, tmp_char, strlen(tmp_char)) < 0) {
             if(errno == EINTR) {
                 std::cout << "signal interruption." << std::endl;
-                num++;
+                n++;
                 continue;//signal interruption
             }
             else if(errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -99,47 +99,25 @@ int HTTPwrite(std::string info,int sockfd) {
 //成功返回1 失败返回0/-1   0=写未完成 需要再次执行   -1=出错 需关闭连接
 int Writefile(off_t offset, int remaining, int sockfd, int filefd) {
     int num = 0;
-    if (remaining > MAX_BUF_SIZE) {
-        while (1) {
-            if(num > 10)
-                return 0;
-            int n = sendfile(sockfd, filefd, &offset, MAX_BUF_SIZE);
-            if (n < 0) {
-                if (errno == EINTR) {
-                    std::cout << "signal interruption." << std::endl;
-                    num++;
-                    continue;
-                }
-                else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    return 0;
-                }
-                else {
-                    err_sys("Write error:");
-                    return -1;
-                }
+    while (1) {
+        if(num > 10)
+            return 0;
+        int n = sendfile(sockfd, filefd, &offset, WRITE_BUF_SIZE);
+        if (n < 0) {
+            if (errno == EINTR) {
+                std::cout << "signal interruption." << std::endl;
+                num++;
+                continue;
             }
-            return 1;
-        }
-    }
-    else {
-        while (1) {
-            if(num > 10)
+            else if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 return 0;
-            int n = sendfile(sockfd, filefd, &offset, MAX_BUF_SIZE);
-            if (n < 0) {
-                if(errno == EINTR) {
-                    continue;
-                }
-                else if(errno == EAGAIN || errno == EWOULDBLOCK) {
-                    return 0;
-                }
-                else {
-                    err_sys("Write error:");
-                    return -1;
-                }
             }
-            return 1;
+            else {
+                err_sys("Write error:");
+                return -1;
+            }
         }
+        return 1;
     }
 }
 
@@ -192,19 +170,18 @@ void Setnoblocking(int fd) { //不阻塞
     }
 }
 void Setreuseaddr(int fd) { //重用地址 避免FIN_WAIT状态
-    bool Reuseaddr = true;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&Reuseaddr, sizeof(bool)) < 0) {
-        err_sys("Setreuseaddr error:");
-    }
+    int reuseaddr = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) < 0)
+        err_sys("setsockopt(SO_REUSEADDR) failed");
 }
 void Setbuffer(int fd) { //设置缓存
-    int RecvBuf = BUFFER_SIZE; 
-    int SendBuf = BUFFER_SIZE;
+    int RecvBuf = READ_BUF_SIZE; 
+    int SendBuf = WRITE_BUF_SIZE;
     if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&RecvBuf, sizeof(int)) < 0) {
-        err_sys("Setbuffer error:");
+        err_sys("setsockopt(SO_RCVBUF) error:");
     }
     if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char *)&SendBuf, sizeof(int)) < 0) {
-        err_sys("Setbuffer error:");
+        err_sys("setsockopt(SO_SNDBUF) error:");
     }
 }
 int Ramdom() {

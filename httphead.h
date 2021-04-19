@@ -1,7 +1,6 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
-
 #define StatusOK                              200 //200 读取成功且合法
 #define StatusForbidden                       403 //403 禁止访问
 #define StatusBadRequest                      400 //400 非法请求 
@@ -13,17 +12,19 @@ struct Clientinfo {
     std::string readbuf;
     std::string httphead;
     std::string info;
+    int t;
     int remaining;
     int send;
     int filefd;
     int sockfd;
     bool session;
-    Clientinfo() : readbuf("none"), httphead("none"), info("none"), remaining(0), send(0), filefd(0), sockfd(-1), session(false){}
-    Clientinfo(const Clientinfo &tmp) : readbuf(tmp.readbuf), httphead(tmp.httphead), info(tmp.info), remaining(tmp.remaining), send(tmp.send), filefd(tmp.filefd), sockfd(tmp.sockfd), session(tmp.session){}
+    Clientinfo() : readbuf("none"), httphead("none"), info("none"), t(0), remaining(0), send(0), filefd(0), sockfd(-1), session(false){}
+    Clientinfo(const Clientinfo &tmp) : readbuf(tmp.readbuf), httphead(tmp.httphead), info(tmp.info), t(tmp.t), remaining(tmp.remaining), send(tmp.send), filefd(tmp.filefd), sockfd(tmp.sockfd), session(tmp.session){}
     Clientinfo &operator=(struct Clientinfo &&tmp_) {
         readbuf = tmp_.readbuf;
         httphead = tmp_.httphead;
         info = tmp_.info;
+        t = tmp_.t;
         remaining = tmp_.remaining;
         send = tmp_.send;
         filefd = tmp_.filefd;
@@ -31,10 +32,11 @@ struct Clientinfo {
         session = tmp_.session;
         return *this;
     }
-    void Resetinfo() {
+    void reset() {
         readbuf.clear();
         httphead.clear();
         info.clear();
+        t = 0;
         remaining = 0;
         send = 0;
         filefd = -1;
