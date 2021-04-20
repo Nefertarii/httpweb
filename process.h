@@ -1,9 +1,8 @@
 #ifndef PROCESS_H_
 #define PROCESS_H_
 
-#include "localinfo.h"
-#include "record.h"
-#include "serverprocess.h"
+#include "httphead.h"
+#include "servhead.h"
 
 extern const std::string DIR;
 extern const std::string PAGE400;
@@ -11,69 +10,78 @@ extern const std::string PAGE401;
 extern const std::string PAGE403;
 extern const std::string PAGE404;
 
-Method ReadProcess::HTTPreadprocess()
+class ReadProcess
 {
-    std::cout << "Reading... ";
+private:
+    CLIENT *cli;
+
+public:
+    ReadProcess(CLIENT *cli_p) { cli = cli_p; }
+    Method Read();
+    Method GETprocess();
+    Method POSTprocess();
+    //Method POSTChoess(std::string str_state) = 0;
+    std::string Serverstate(int state);
+    ~ReadProcess() {}
+};
+class WriteProcess
+{
+private:
+    CLIENT *cli;
+
+public:
+    WriteProcess(CLIENT *cli_p) { cli = cli_p; }
+    Method Writehead();
+    Method Writefile();
+    Method Writeinfo();
+    ~WriteProcess() {}
+};
+
+Method ReadProcess::Read()
+{
     int n = serv::HTTPread(cli->get()->sockfd, &(cli->get()->readbuf));
     if (n == 1)
-    {
-        return Httpprocess(cli->get()->readbuf);
+    { //read success.
+        cli->get()->httptype = Httptype(cli->get()->readbuf);
+        cli->get()->status = HTTP_READ_OK;
+        return OK;
     }
     else if (n == 0)
-    {
+    { //read to large.
         std::cout << " size to big.\n";
-        BadRequest(400, cli);
-        Epollwrite(cli);
+        cli->get()->status = HTTP_READ_FAIL;
         return ERROR;
     }
     else
-    {
-        std::cout << " read fail.\n";
-        Closeclient(cli);
+    { //client close
+        std::cout << " client close.\n";
+        cli->get()->status = HTTP_READ_FAIL;
         return ERROR;
     }
 }
-//GET只用于发送html/css/js...文件
 Method ReadProcess::GETprocess()
-{
-    std::string filedir = DIR; //先添加文件的绝对位置
+{                              //GET只用于发送页面文件
+    std::string filedir = DIR; //先添加文件的位置
     std::string filename;
-    std::cout << "Process method:GET...";
-    int beg = 5, end = 0;
-    while (end <= 100)
-    { //开始读取要求的文件位置
-        if (cli->get()->readbuf[end + beg] == ' ')
-            break;
-        end++;
-    }
-    if (end == 0)
-    { //默认返回index.html
-        filename = "index.html";
-    }
-    else if (end <= 100)
-    { //截取文件名
-        filename = cli->get()->readbuf.substr(beg, end);
-    }
-    else if (end > 100)
-    { //文件地址要求过长
-        std::cout << " size to long.";
+    filename = serv::Substr(cli->get()->readbuf, 5); //GET=5
+    if (filename.length() < 1)
+    {
+        cli->get()->status = NOT_THIS_FILE;
         return ERROR;
     }
-    std::cout << " done. "
-              << "\nFile: " << filename << " ";
     filedir += filename;
-
-    int n = serv::Readfile(filedir, cli);
+    cli->get()->filename = filedir;
+    //std::cout << "\n[" << cli->get()->filename << "]\n";
+    int n = serv::Readfile(cli);
     if (n == 1)
     { //读取成功
-        std::cout << " Read success." << std::endl;
         Responehead(200, filedir, cli);
-        //std::cout << cli->get()->httphead << std::endl;
+        cli->get()->status = FILE_READ_OK;
         return OK;
     }
     else
     { //open/stat出错
-        std::cout << " Read fali." << std::endl;
+        cli->get()->status = FILE_READ_FAIL;
         return ERROR;
     }
 }
@@ -127,64 +135,90 @@ Method ReadProcess::POSTprocess()
     }*/
     return OK;
 }
-
-void WriteProcess::Writehead()
+Method WriteProcess::Writehead()
 {
     int n = serv::HTTPwrite(cli->get()->httphead, cli->get()->sockfd);
     if (n == 1)
     {
-        std::cout << "done. ";
         cli->get()->httphead.clear();
+        cli->get()->status = WRITE_HEAD_OK;
+        return OK;
     }
     else if (n == 0)
     {
-        std::cout << "done. ";
-        return;
+        cli->get()->status = WRITE_HEAD_FAIL;
+        return ERROR;
     }
     else if (n == -1)
     {
-        Closeclient(cli);
-        return;
+        cli->get()->status = WRITE_HEAD_FAIL;
+        return ERROR;
     }
+    return ERROR;
 }
-void WriteProcess::Writefile()
+Method WriteProcess::Writefile()
 {
-    std::cout << "Write file... ";
-    if (cli->get()->remaining > WRITE_BUF_SIZE)
+    while (1)
     {
-        serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
-        cli->get()->send += WRITE_BUF_SIZE;
-        cli->get()->remaining -= WRITE_BUF_SIZE;
-        cli->get()->t += 1;
-    }
-    else
-    {
-        serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
-        cli->get()->reset();
-        Epollread(cli);
-        cli->get()->t += 1;
-        std::cout << "done. times:" << cli->get()->t;
+        if (cli->get()->remaining > WRITE_BUF_SIZE)
+        {
+            int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
+            if (n < 0)
+            {
+                cli->get()->status = WRITE_FILE_FAIL;
+                return ERROR;
+            }
+            cli->get()->send += WRITE_BUF_SIZE;
+            cli->get()->remaining -= WRITE_BUF_SIZE;
+            cli->get()->writetime += 1;
+        }
+        else
+        {
+            int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
+            if (n < 0)
+            {
+                cli->get()->status = WRITE_FILE_FAIL;
+                return ERROR;
+            }
+            cli->get()->reset();
+            cli->get()->writetime += 1;
+            cli->get()->status = WRITE_FILE_OK;
+            return OK;
+        }
     }
 }
-void WriteProcess::Writeinfo()
+Method WriteProcess::Writeinfo()
 {
-    std::cout << "Write info... ";
-    if (cli->get()->remaining > WRITE_BUF_SIZE)
+    for (;;)
     {
-        serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
-        cli->get()->send += WRITE_BUF_SIZE;
-        cli->get()->remaining -= WRITE_BUF_SIZE;
-        cli->get()->t += 1;
-    }
-    else
-    {
-        serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
-        cli->get()->reset();
-        Epollread(cli);
-        cli->get()->t += 1;
-        std::cout << "done. times:" << cli->get()->t;
+        if (cli->get()->remaining > WRITE_BUF_SIZE)
+        {
+            int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
+            if (n < 0)
+            {
+                cli->get()->status = WRITE_INFO_FAIL;
+                return ERROR;
+            }
+            cli->get()->send += WRITE_BUF_SIZE;
+            cli->get()->remaining -= WRITE_BUF_SIZE;
+            cli->get()->writetime++;
+        }
+        else
+        {
+            int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
+            if (n < 0)
+            {
+                cli->get()->status = WRITE_INFO_FAIL;
+                return ERROR;
+            }
+            cli->get()->reset();
+            cli->get()->writetime += 1;
+            cli->get()->status = WRITE_INFO_OK;
+            return OK;
+        }
     }
 }
+
 //写入http头之后所带的信息 和 前端POST请求的位置
 /*
 class Login : public ReadProcess

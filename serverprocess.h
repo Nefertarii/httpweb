@@ -1,8 +1,9 @@
 #ifndef SERVERPROCESSED_H_
 #define SERVERPROCESSED_H_
 
-#include "httphead.h"
-#include "servhead.h"
+#include "localinfo.h"
+#include "process.h"
+#include "record.h"
 #include <iostream>
 #include <netdb.h>
 #include <signal.h>
@@ -25,6 +26,7 @@ private:
 public:
     Server();
     void Start();
+    void Stop();
     void Record();
     void Acceptconnect();
     void TCPlisten(int port);
@@ -36,49 +38,24 @@ public:
     void BadRequest(int statecode, CLIENT *cli);
     void Socketwrite(void *cli);
     void Socketread(void *cli);
-    int Epollfd() { return epollfd; }
-    ~Server();
+    ~Server(){};
 };
-class ReadProcess : public Server
-{
-private:
-    CLIENT *cli;
-
-public:
-    ReadProcess(CLIENT *cli_p) { cli = cli_p; }
-    Method HTTPreadprocess();
-    Method GETprocess();
-    Method POSTprocess();
-    //Method POSTChoess(std::string str_state) = 0;
-    std::string Serverstate(int state);
-    ~ReadProcess() {}
-};
-class WriteProcess : public Server
-{
-private:
-    CLIENT *cli;
-
-public:
-    WriteProcess(CLIENT *cli_p) { cli = cli_p; }
-    void Writehead();
-    void Writefile();
-    void Writeinfo();
-    ~WriteProcess() {}
-};
-
-Server::Server() {}
-void Server::Start()
+Server::Server()
 {
     clients.resize(MAX_CLI);
     for (int i = 0; i != MAX_CLI; i++)
     {
         clients[i] = std::make_shared<Clientinfo>();
+        clients[i]->reset();
     }
     signal(SIGPIPE, SIG_IGN);
     epollfd = epoll_create(MAX_CLI);
     TCPlisten(SERV_PORT);
     Epolladd(listenfd, nullptr);
     std::cout << "Initialisation complete!\n";
+}
+void Server::Start()
+{
     std::cout << "Server start!\n";
     for (;;)
     {
@@ -99,15 +76,137 @@ void Server::Start()
             {
                 if (ev.events & EPOLLIN)
                 {
-                    Socketread(ev.data.ptr);
+                    //Socketread(ev.data.ptr);
+                    CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
+                    ReadProcess client(cli);
+                    std::cout << "\nRead... ";
+                    client.Read();
+                    if (cli->get()->status == HTTP_READ_OK)
+                    {
+                        std::cout << "OK. ";
+                        if (cli->get()->httptype == GET)
+                        {
+                            std::cout << "method:GET processing...";
+                            client.GETprocess();
+                            if (cli->get()->status == FILE_READ_OK)
+                            {
+                                std::cout << "done. file:" << cli->get()->filename;
+                                Epollwrite(cli);
+                            }
+                            else
+                            {
+                                std::cout << "Fail. not this file. ";
+                                BadRequest(404, cli);
+                            }
+                        }
+                        else if (cli->get()->httptype == POST)
+                        {
+                            std::cout << "method:POST: ";
+                            Closeclient(cli);
+                            /*
+                            client.POSTprocess();
+                            switch (cli->get()->status)
+                            {
+                            case 1:
+                            {
+                                std::cout << "case:1: ";
+                                break;
+                            }
+                            default:
+                            {
+                                std::cout << "case:bad: ";
+                                break;
+                            }
+                            }
+                            */
+                        }
+                        else
+                        {
+                            std::cout << "error method.";
+                            Closeclient(cli);
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "fail. ";
+                        Closeclient(cli);
+                    }
                 }
                 else if (ev.events & EPOLLOUT)
                 {
-                    Socketwrite(ev.data.ptr);
+                    //Socketwrite(ev.data.ptr);
+                    CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
+                    WriteProcess client(cli);
+                    std::cout << "\nWrite ";
+                    if (cli->get()->filefd > 0) //write file
+                    {
+                        std::cout << "file. write head...";
+                        client.Writehead();
+                        if (cli->get()->status == WRITE_HEAD_OK)
+                        {
+                            std::cout << "done. write file...";
+                            client.Writefile();
+                            if (cli->get()->status == WRITE_FILE_FAIL)
+                            {
+                                std::cout << "fail. ";
+                                Closeclient(cli);
+                            }
+                            else
+                            {
+                                std::cout << "done. write times:"
+                                          << cli->get()->writetime;
+                                Epollread(cli);
+                            }
+                        }
+                        else
+                        {
+                            std::cout << "fail. ";
+                            Closeclient(cli);
+                        }
+                    }
+                    else if (cli->get()->info.length() > 0) //write info(json ...)
+                    {
+                        std::cout << "info. ";
+                        client.Writehead();
+                        if (cli->get()->status == WRITE_HEAD_OK)
+                        {
+                            client.Writeinfo();
+                            if (cli->get()->status == WRITE_INFO_FAIL)
+                            {
+                                Closeclient(cli);
+                            }
+                            else
+                            {
+                                Epollread(cli);
+                            }
+                        }
+                    }
+                    else //error
+                    {
+                        std::cout << "error. ";
+                        Closeclient(cli);
+                    }
                 }
             }
         }
     }
+}
+void Server::Stop()
+{
+    std::cout << "Server closeing... ";
+    for (int i = 0; i != MAX_CLI; i++)
+    {
+        if (clients[i]->sockfd > 0)
+        {
+            shutdown(clients[i]->sockfd, SHUT_RDWR);
+            epoll_ctl(epollfd, EPOLL_CTL_DEL, clients[i]->sockfd, nullptr);
+            serv::Close(clients[i]->sockfd);
+            clients[i] = nullptr;
+        }
+    }
+    serv::Close(listenfd);
+    serv::Close(epollfd);
+    std::cout << "Server close." << std::endl;
 }
 void Server::TCPlisten(int port)
 {
@@ -173,41 +272,46 @@ void Server::Epolladd(int fd, CLIENT *cli)
 }
 void Server::BadRequest(int pagecode, CLIENT *cli)
 {
-    std::cout << "Bad request" << pagecode;
+    //std::cout << "Bad request" << pagecode;
     switch (pagecode)
     {
     case StatusBadRequest:
     { //400
         Responehead(200, "Page400.html", cli);
-        serv::Readfile(PAGE400, cli);
+        cli->get()->filename = PAGE400;
+        serv::Readfile(cli);
         Epollwrite(cli);
         break;
     }
     case StatusUnauthorized:
     { //401
         Responehead(200, "Page401.html", cli);
-        serv::Readfile(PAGE401, cli);
+        cli->get()->filename = PAGE401;
+        serv::Readfile(cli);
         Epollwrite(cli);
         break;
     }
     case StatusForbidden:
     { //403
         Responehead(200, "Page403.html", cli);
-        serv::Readfile(PAGE403, cli);
+        cli->get()->filename = PAGE403;
+        serv::Readfile(cli);
         Epollwrite(cli);
         break;
     }
     case StatusNotFound:
     { //404
         Responehead(200, "Page404.html", cli);
-        serv::Readfile(PAGE404, cli);
+        cli->get()->filename = PAGE404;
+        serv::Readfile(cli);
         Epollwrite(cli);
         break;
     }
     default:
     { //404
         Responehead(200, "Page404.html", cli);
-        serv::Readfile(PAGE404, cli);
+        cli->get()->filename = PAGE404;
+        serv::Readfile(cli);
         Epollwrite(cli);
         break;
     }
@@ -217,69 +321,6 @@ void Server::Acceptconnect()
 {
     int connectfd = serv::Accept(listenfd);
     Createclient(connectfd);
-}
-void Server::Socketwrite(void *cli_p)
-{
-    CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(cli_p);
-    std::cout << "Write... ";
-    WriteProcess client(cli);
-    client.Writehead();
-    if (cli->get()->filefd > 0)
-    { //设置了filefd只发送文件 否则发送携带的信息info
-        std::cout << "Write file... ";
-        client.Writefile();
-    }
-    else
-    {
-        std::cout << "Write info... ";
-        client.Writeinfo();
-    }
-}
-void Server::Socketread(void *cli_p)
-{
-    CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(cli_p);
-    ReadProcess client(cli);
-    Method method = client.HTTPreadprocess();
-    if (method == GET)
-    {
-        method = client.GETprocess();
-        if (method == OK)
-        {
-            Epollwrite(cli);
-        }
-        else
-        {
-            BadRequest(404, cli);
-        }
-    }
-    else if (method == POST)
-    {
-        std::string info, location;
-        client.POSTprocess();
-        Closeclient(cli);
-    }
-    else
-    { //GET,POST only
-        std::cout << " Error method.";
-        BadRequest(404, cli);
-    }
-}
-Server::~Server()
-{
-    std::cout << "Server closeing... ";
-    for (int i = 0; i != MAX_CLI; i++)
-    {
-        if (clients[i]->sockfd > 0)
-        {
-            shutdown(clients[i]->sockfd, SHUT_RDWR);
-            epoll_ctl(epollfd, EPOLL_CTL_DEL, clients[i]->sockfd, nullptr);
-            serv::Close(clients[i]->sockfd);
-            clients[i] = nullptr;
-        }
-    }
-    serv::Close(listenfd);
-    serv::Close(epollfd);
-    std::cout << "Server close." << std::endl;
 }
 
 #endif

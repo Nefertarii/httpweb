@@ -17,7 +17,7 @@ enum CONST_DEFINE
 {
     OPEN_MAX = 64,
     READ_BUF_SIZE = 8 * 1024,
-    WRITE_BUF_SIZE = 2 * 1024,
+    WRITE_BUF_SIZE = 8 * 1024,
     SERV_PORT = 80,
     MAXEVENTS = 50,
     TIMEOUT = 0,
@@ -45,9 +45,10 @@ namespace serv
     void Setbuffer(int fd);
     int Ramdom();
     int HTTPread(int sockfd, std::string *str);
-    int Readfile(std::string filename, CLIENT *cli);
+    int Readfile(CLIENT *cli);
     int HTTPwrite(std::string info, int sockfd);
     int Writefile(off_t offset, int remaining, int sockfd, int filefd);
+    std::string Substr(std::string readbuf, int beg);
 }
 
 int serv::Socket(int family, int type, int protocol)
@@ -90,7 +91,7 @@ int serv::Accept(int listenfd)
             serv::err_sys("Accept error:");
             exit(errno);
         }
-        std::cout << "Get accept form:" << inet_ntoa(cliaddr.sin_addr) << std::endl;
+        std::cout << "\nGet accept form:" << inet_ntoa(cliaddr.sin_addr) << std::endl;
         return connectfd;
     }
 }
@@ -149,7 +150,6 @@ int serv::HTTPread(int sockfd, std::string *str)
     }
     else if (readsize == 0)
     {
-        std::cout << "Client close.\n";
         //Closeclient(cli); 对端关闭 FIN
         return -1;
     }
@@ -163,22 +163,22 @@ int serv::HTTPread(int sockfd, std::string *str)
 //传入要处理的文件名字(若在其他目录传入的名字带相对路径)
 //成功返回1 cli中写入读取的本地文件fd并根据文件大小设置剩余发送的大小
 //失败返回0/-1
-int serv::Readfile(std::string filename, CLIENT *cli)
+int serv::Readfile(CLIENT *cli)
 {
     struct stat filestat_;
     int filestat;
-    const char *tmp_char = filename.c_str();
+    const char *tmp_char = cli->get()->filename.c_str();
     cli->get()->filefd = open(tmp_char, O_RDONLY);
     if (cli->get()->filefd < 0)
     {
-        serv::err_sys("func(Readfile) open error:");
+        std::cout << tmp_char << std::endl;
+        serv::err_sys("func(Readfile) error:");
         return 0;
     }
-
     filestat = stat(tmp_char, &filestat_);
     if (filestat < 0)
     {
-        serv::err_sys("func(Readfile) stat error:");
+        serv::err_sys("func(Readfile) error:");
         return -1;
     }
     cli->get()->remaining += filestat_.st_size;
@@ -247,4 +247,28 @@ int serv::Writefile(off_t offset, int remaining, int sockfd, int filefd)
     }
 }
 
+std::string serv::Substr(std::string readbuf, int beg_)
+{
+    int beg = beg_, end = 0;
+    while (end <= 100)
+    { //开始读取要求的文件位置
+        if (readbuf[end + beg] == ' ')
+            break;
+        end++;
+    }
+    if (end == 0)
+    { //默认返回index.html
+        return "index.html";
+    }
+    else if (end <= 100)
+    { //截取文件名
+        return readbuf.substr(beg, end);
+    }
+    else
+    { //文件地址要求过长
+        std::cout << " size to long.";
+        return "";
+    }
+    //return "";
+}
 #endif

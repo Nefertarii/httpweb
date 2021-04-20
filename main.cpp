@@ -1,4 +1,4 @@
-#include "process.h"
+#include "serverprocess.h"
 
 //常量 AAABBB
 //类 AaaBbb
@@ -11,7 +11,7 @@ void Stop(int sig) { //获取信号 2
     std::cout << "\nInterrupt signal (" << sig << ") received.\n"
               << std::endl;
     if (sig == SIGINT) {
-        //Server_GWC.~Server();
+        Server_GWC.Stop();
         exit(sig);
     }
 }
