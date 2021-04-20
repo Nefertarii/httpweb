@@ -1,6 +1,11 @@
-#include "serverprocess.h"
+#include "process.h"
 
-Server Server_GWC(SERV_PORT);
+//常量 AAABBB
+//类 AaaBbb
+//函数 Aaabbb
+//变量 aaabbb
+
+Server Server_GWC;
 
 void Stop(int sig) { //获取信号 2
     std::cout << "\nInterrupt signal (" << sig << ") received.\n"

@@ -1,12 +1,17 @@
 #ifndef HTTPHEAD_H_
 #define HTTPHEAD_H_
 
+#include <string>
+#include <memory>
+#include <ctime>
+
+
 #define StatusOK                              200 //200 读取成功且合法
 #define StatusForbidden                       403 //403 禁止访问
 #define StatusBadRequest                      400 //400 非法请求 
 #define StatusUnauthorized                    401 //401 需要登录 登录失败 
 #define StatusNotFound                        404 //404 访问错误
-#define CLIENT std::shared_ptr<Clientinfo>
+
 
 struct Clientinfo {
     std::string readbuf;
@@ -46,7 +51,7 @@ struct Clientinfo {
     //其余的在每次写完成后处理
     //添加/删除数据记得修改Resetinfo()
 };
-
+typedef std::shared_ptr<Clientinfo> CLIENT;
 
 
 enum Method {
