@@ -101,8 +101,10 @@ void Server::Start()
                         }
                         else if (cli->get()->httptype == POST)
                         {
+                            client.POSTprocess();
                             std::cout << "method:POST: ";
-                            Closeclient(cli);
+                            Responehead(403, "403.html", cli);
+                            Epollwrite(cli);
                             /*
                             client.POSTprocess();
                             switch (cli->get()->status)

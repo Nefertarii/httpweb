@@ -20,7 +20,7 @@ public:
     Method Read();
     Method GETprocess();
     Method POSTprocess();
-    //Method POSTChoess(std::string str_state) = 0;
+    Method POSTChoess(Method method);
     std::string Serverstate(int state);
     ~ReadProcess() {}
 };
@@ -87,53 +87,72 @@ Method ReadProcess::GETprocess()
 }
 Method ReadProcess::POSTprocess()
 {
-    /*
-    Method POSTprocess(std::string readbuf, CLIENT * cli, std::string * info, std::string * location)
+    std::string location;
+    //获取数据.
+    int beg = 0, end = readbuf.length();
+    while (beg < 200)
+    { //读取请求的数据
+        if (readbuf[end - beg] == '\n')
+            break;
+        beg++;
+    }
+    if (beg <= 200 && 0 < beg)
+    { //从尾部开始中截取数据
+        *info = readbuf.substr((end - beg + 1), beg);
+    }
+    else
+    { //数据过长或没有设置
+        *info = "ERROR";
+    }
+
+    //获取位置 位置不同处理方式不同
+    serv::Substr(readbuf, 6); //POST=6
+
+    if (*location == "ERROR" || *info == "ERROR")
     {
-        //获取数据.
-        int beg = 0, end = readbuf.length();
-        while (beg < 200)
-        { //读取请求的数据
-            if (readbuf[end - beg] == '\n')
-                break;
-            beg++;
-        }
-        if (beg <= 200 && 0 < beg)
-        { //从尾部开始中截取数据
-            *info = readbuf.substr((end - beg + 1), beg);
-        }
-        else
-        { //数据过长或没有设置
-            *info = "ERROR";
-        }
-
-        //获取位置 位置不同处理方式不同
-        beg = 6, end = 0;
-        while (end <= 100)
-        { //读取请求的位置
-            if (readbuf[end + beg] == ' ')
-                break;
-            end++;
-        }
-        if (end <= 100 && 0 < end)
-        { //从头中截取位置
-            *location = readbuf.substr(beg, end);
-        }
-        else
-        { //要求过长或没有设置
-            *location = "ERROR";
-        }
-
-        if (*location == "ERROR" || *info == "ERROR")
-        {
-            return ERROR;
-        }
-        else
-        {
-            return OK;
-        }
-    }*/
+        return ERROR;
+    }
+    else
+    {
+        return OK;
+    }
     return OK;
+}
+Method ReadProcess::POSTChoess(Method method)
+{
+    switch (method)
+    {
+    case Login:
+        /* code */
+        break;
+    case Login:
+        /* code */
+        break;
+    case Reset:
+        /* code */
+        break;
+    case Create:
+        /* code */
+        break;
+    case Vote_Up:
+        /* code */
+        break;
+    case Vote_Down:
+        /* code */
+        break;
+    case Comment:
+        /* code */
+        break;
+    case Content:
+        /* code */
+        break;
+    case Readcount:
+        /* code */
+        break;
+    default:
+        /* code */
+        break;
+    }
 }
 Method WriteProcess::Writehead()
 {
@@ -218,31 +237,6 @@ Method WriteProcess::Writeinfo()
         }
     }
 }
-
-//写入http头之后所带的信息 和 前端POST请求的位置
-/*
-class Login : public ReadProcess
-{
-};
-class Resetpassword : public ReadProcess
-{
-};
-class Createaccount : public ReadProcess
-{
-};
-class Vote : public ReadProcess
-{
-};
-class Comment : public ReadProcess
-{
-};
-class Content : public ReadProcess
-{
-};
-class Readcount : public ReadProcess
-{
-};
-*/
 
 //对登录数据进行截取、判断
 //成功返回1 否则返回-1
