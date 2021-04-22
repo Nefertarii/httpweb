@@ -20,6 +20,14 @@ public:
     Method Read();
     Method GETprocess();
     Method POSTprocess();
+    Method POSTLogin();
+    Method POSTReset();
+    Method POSTCreate();
+    Method POSTVote();
+    Method POSTComment();
+    Method POSTContent();
+    Method POSTReadcount();
+    void POSTChoess(std::string method);
     Method POSTChoess(Method method);
     std::string Serverstate(int state);
     ~ReadProcess() {}
@@ -87,9 +95,20 @@ Method ReadProcess::GETprocess()
 }
 Method ReadProcess::POSTprocess()
 {
-    std::string location;
+    //获取位置 位置不同处理方式不同
+    std::string location = serv::Substr(cli->get()->readbuf, 6); //POST=6
+    if(location.length() < 1)
+    {
+        cli->get()->status = POST_LOCATION_ERROR;
+        return ERROR;
+    }
+    if (POSTChoess(location) == ERROR) {
+        return ERROR;
+    }
+    POSTChoess(cli->get()->status);
+
     //获取数据.
-    int beg = 0, end = readbuf.length();
+    int beg = 0, end = cli->get()->readbuf.length();
     while (beg < 200)
     { //读取请求的数据
         if (readbuf[end - beg] == '\n')
@@ -98,23 +117,40 @@ Method ReadProcess::POSTprocess()
     }
     if (beg <= 200 && 0 < beg)
     { //从尾部开始中截取数据
-        *info = readbuf.substr((end - beg + 1), beg);
+        cli->get()->info = readbuf.substr((end - beg + 1), beg);
     }
     else
     { //数据过长或没有设置
-        *info = "ERROR";
-    }
-
-    //获取位置 位置不同处理方式不同
-    serv::Substr(readbuf, 6); //POST=6
-
-    if (*location == "ERROR" || *info == "ERROR")
-    {
+        cli->get()->status = TypeERROR;
         return ERROR;
     }
-    else
-    {
-        return OK;
+    return OK;
+
+
+
+
+}
+Method ReadProcess::POSTChoess(std::string method)
+{
+    if (method == "Login")
+        cli->get()->status = Login;
+    else if (method == "Reset")
+        cli->get()->status = Reset;
+    else if (method == "Create")
+        cli->get()->status = Create;
+    else if (method == "Vote_Up")
+        cli->get()->status = Vote_Up;
+    else if (method == "Vote_Down")
+        cli->get()->status = Vote_Down;
+    else if (method == "Comment")
+        cli->get()->status = Comment;
+    else if (method == "Content")
+        cli->get()->status = Content;
+    else if (method == "Readcount")
+        cli->get()->status = Readcount;
+    else {
+        cli->get()->status = TypeERROR;
+        return ERROR;
     }
     return OK;
 }
@@ -123,37 +159,44 @@ Method ReadProcess::POSTChoess(Method method)
     switch (method)
     {
     case Login:
-        /* code */
-        break;
-    case Login:
-        /* code */
+        std::cout << "done. Login...";
+        POSTLogin();
         break;
     case Reset:
         /* code */
+        POSTReset();
         break;
     case Create:
         /* code */
+        POSTCreate();
         break;
     case Vote_Up:
         /* code */
+        POSTVote();
         break;
     case Vote_Down:
         /* code */
+        POSTVote();
         break;
     case Comment:
         /* code */
+        POSTComment();
         break;
     case Content:
         /* code */
+        POSTContent();
         break;
     case Readcount:
         /* code */
+        PSOTReadcount();
         break;
     default:
         /* code */
-        break;
+        return ERROR;
     }
 }
+
+
 Method WriteProcess::Writehead()
 {
     int n = serv::HTTPwrite(cli->get()->httphead, cli->get()->sockfd);
@@ -177,7 +220,7 @@ Method WriteProcess::Writehead()
 }
 Method WriteProcess::Writefile()
 {
-    while (1)
+    for (;;)
     {
         if (cli->get()->remaining > WRITE_BUF_SIZE)
         {
@@ -243,7 +286,7 @@ Method WriteProcess::Writeinfo()
 int Loginprocess(std::string userinfo, std::string *username, std::string *password)
 {
     int beg = 9, end = 0;
-    while (1)
+    for (;;)
     {
         if (userinfo[beg + end] == '&')
         {
@@ -258,7 +301,7 @@ int Loginprocess(std::string userinfo, std::string *username, std::string *passw
     }
     beg = beg + end + 10;
     end = 0;
-    while (1)
+    for (;;)
     {
         if (userinfo[beg + end] == '&')
         {

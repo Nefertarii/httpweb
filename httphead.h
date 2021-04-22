@@ -30,7 +30,8 @@ enum Method
     POST_INFO_ERROR,
     POST_LOCATION_ERROR,
     HTTP_READ_FAIL,
-
+    
+    TypeERROR = -2,
     ERROR = -1,
     NONE = 0,
     OK = 1,

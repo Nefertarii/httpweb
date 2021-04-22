@@ -87,22 +87,33 @@ void Server::Start()
                         if (cli->get()->httptype == GET)
                         {
                             std::cout << "method:GET processing...";
-                            client.GETprocess();
-                            if (cli->get()->status == FILE_READ_OK)
+                            if (client.GETprocess() == ERROR)
                             {
-                                std::cout << "done. file:" << cli->get()->filename;
-                                Epollwrite(cli);
+                                cli->get().Error();
                             }
                             else
                             {
-                                std::cout << "Fail. not this file. ";
-                                BadRequest(404, cli);
+                                if (cli->get()->status == ERROR)
+                                {
+                                    std::cout << "fail. not this file. ";
+                                    cli->get().Error();
+                                    BadRequest(404, cli);
+                                }
+                                else
+                                {
+                                    std::cout << "done. file:" << cli->get()->filename;
+                                    Epollwrite(cli);
+                                }
                             }
                         }
                         else if (cli->get()->httptype == POST)
                         {
+                            std::cout << "method:POST processing...";
                             client.POSTprocess();
-                            std::cout << "method:POST: ";
+                            if (cli->get()->status == TypeERROR)
+                            {
+                                std::cout << "fail. POST type Error";
+                            }
                             Responehead(403, "403.html", cli);
                             Epollwrite(cli);
                             /*
