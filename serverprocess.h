@@ -46,7 +46,7 @@ Server::Server()
     for (int i = 0; i != MAX_CLI; i++)
     {
         clients[i] = std::make_shared<Clientinfo>();
-        clients[i]->reset();
+        clients[i]->Reset();
     }
     signal(SIGPIPE, SIG_IGN);
     epollfd = epoll_create(MAX_CLI);
@@ -76,72 +76,55 @@ void Server::Start()
             {
                 if (ev.events & EPOLLIN)
                 {
-                    //Socketread(ev.data.ptr);
                     CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                     ReadProcess client(cli);
                     std::cout << "\nRead... ";
-                    client.Read();
-                    if (cli->get()->status == HTTP_READ_OK)
+                    if (client.Read())
                     {
                         std::cout << "OK. ";
-                        if (cli->get()->httptype == GET)
+                        switch (cli->get()->httptype)
                         {
-                            std::cout << "method:GET processing...";
-                            if (client.GETprocess() == ERROR)
+                        case GET:
+                        {
+                            if (client.GETprocess())
                             {
-                                cli->get().Error();
+                                std::cout << "process sucess.\n"
+                                          << "file:" << cli->get()->filename;
+                                Epollwrite(cli);
                             }
-                            else
+                            else //GET process fail
                             {
-                                if (cli->get()->status == ERROR)
-                                {
-                                    std::cout << "fail. not this file. ";
-                                    cli->get().Error();
-                                    BadRequest(404, cli);
-                                }
-                                else
-                                {
-                                    std::cout << "done. file:" << cli->get()->filename;
-                                    Epollwrite(cli);
-                                }
+                                cli->get()->Strerror();
+                                BadRequest(404, cli);
+                                Epollwrite(cli);
                             }
+                            break;
                         }
-                        else if (cli->get()->httptype == POST)
+                        case POST:
                         {
-                            std::cout << "method:POST processing...";
-                            client.POSTprocess();
-                            if (cli->get()->status == TypeERROR)
+                            if (client.POSTprocess())
                             {
-                                std::cout << "fail. POST type Error";
+                                POSTChoess(cli->get()->status);
                             }
-                            Responehead(403, "403.html", cli);
-                            Epollwrite(cli);
-                            /*
-                            client.POSTprocess();
-                            switch (cli->get()->status)
+                            else 
                             {
-                            case 1:
-                            {
-                                std::cout << "case:1: ";
-                                break;
+                                cli->get()->Strerror();
+                                Responehead(403, "page403.html", cli);
+                                Epollwrite(cli);
                             }
-                            default:
-                            {
-                                std::cout << "case:bad: ";
-                                break;
-                            }
-                            }
-                            */
+                            break;
                         }
-                        else
+                        default:
                         {
-                            std::cout << "error method.";
+                            cli->get()->Strerror();
                             Closeclient(cli);
+                            break;
+                        }
                         }
                     }
                     else
                     {
-                        std::cout << "fail. ";
+                        cli->get()->Strerror();
                         Closeclient(cli);
                     }
                 }
@@ -151,7 +134,17 @@ void Server::Start()
                     CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                     WriteProcess client(cli);
                     std::cout << "\nWrite ";
-                    if (cli->get()->filefd > 0) //write file
+                    switch (cli->get()->status)
+                    {
+                    case /* constant-expression */:
+                        /* code */
+                        break;
+
+                    default:
+                        break;
+                    }
+
+                    if (cli->get()->status == FILE_READ_OK) //write file
                     {
                         std::cout << "file. write head...";
                         client.Writehead();
@@ -177,7 +170,7 @@ void Server::Start()
                             Closeclient(cli);
                         }
                     }
-                    else if (cli->get()->info.length() > 0) //write info(json ...)
+                    else if (cli->get()->status ==) //write info(json ...)
                     {
                         std::cout << "info. ";
                         client.Writehead();
@@ -259,7 +252,7 @@ void Server::Closeclient(CLIENT *cli)
     epoll_ctl(epollfd, EPOLL_CTL_DEL, cli->get()->sockfd, nullptr);
     cli->get()->sockfd = -1;
     cli->get()->session = false;
-    cli->get()->reset();
+    cli->get()->Reset();
 }
 void Server::Record() {}
 void Server::Epollwrite(CLIENT *cli)
@@ -293,7 +286,6 @@ void Server::BadRequest(int pagecode, CLIENT *cli)
         Responehead(200, "Page400.html", cli);
         cli->get()->filename = PAGE400;
         serv::Readfile(cli);
-        Epollwrite(cli);
         break;
     }
     case StatusUnauthorized:
@@ -301,7 +293,6 @@ void Server::BadRequest(int pagecode, CLIENT *cli)
         Responehead(200, "Page401.html", cli);
         cli->get()->filename = PAGE401;
         serv::Readfile(cli);
-        Epollwrite(cli);
         break;
     }
     case StatusForbidden:
@@ -309,7 +300,6 @@ void Server::BadRequest(int pagecode, CLIENT *cli)
         Responehead(200, "Page403.html", cli);
         cli->get()->filename = PAGE403;
         serv::Readfile(cli);
-        Epollwrite(cli);
         break;
     }
     case StatusNotFound:
@@ -317,7 +307,6 @@ void Server::BadRequest(int pagecode, CLIENT *cli)
         Responehead(200, "Page404.html", cli);
         cli->get()->filename = PAGE404;
         serv::Readfile(cli);
-        Epollwrite(cli);
         break;
     }
     default:
@@ -325,7 +314,6 @@ void Server::BadRequest(int pagecode, CLIENT *cli)
         Responehead(200, "Page404.html", cli);
         cli->get()->filename = PAGE404;
         serv::Readfile(cli);
-        Epollwrite(cli);
         break;
     }
     }

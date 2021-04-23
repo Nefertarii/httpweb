@@ -4,6 +4,7 @@
 #include <ctime>
 #include <memory>
 #include <string>
+#include "serverror.h"
 
 #define StatusOK 200           //200 读取成功且合法
 #define StatusForbidden 403    //403 禁止访问
@@ -11,68 +12,15 @@
 #define StatusUnauthorized 401 //401 需要登录 登录失败
 #define StatusNotFound 404     //404 访问错误
 
-enum Method
-{
-    Comment_Fail = -26,
-    Content_Fail,
-    Readcount_Fail,
-    Vote_Down_Fail,
-    Vote_Up_Fail,
-    Create_Fail,
-    Reset_Fail,
-    Login_Fail,
-
-    WRITE_INFO_FAIL,
-    WRITE_FILE_FAIL,
-    WRITE_HEAD_FAIL,
-    FILE_READ_FAIL,
-    NOT_THIS_FILE,
-    POST_INFO_ERROR,
-    POST_LOCATION_ERROR,
-    HTTP_READ_FAIL,
-    
-    TypeERROR = -2,
-    ERROR = -1,
-    NONE = 0,
-    OK = 1,
-    GET,
-    POST,
-
-    HTTP_READ_OK,
-    FILE_READ_OK,
-    POST_INFO_OK,
-    POST_LOCATION_OK,
-    WRITE_HEAD_OK,
-    WRITE_FILE_OK,
-    WRITE_INFO_OK,
-
-    Login = 20,
-    Login_OK,
-    Reset,
-    Reset_OK,
-    Create,
-    Create_OK,
-    Vote_Up,
-    Vote_Up_OK,
-    Vote_Down,
-    VOte_Down_OK,
-    Comment,
-    Comment_OK,
-    Content,
-    Content_OK,
-    Readcount,
-    Readcount_OK
-
-};
-
 struct Clientinfo
 {
     std::string readbuf;
     std::string httphead;
     std::string info;
     std::string filename;
-    Method status; //next step do what
-    Method httptype;
+    SERV_PROCESS status; //next step do what
+    SERV_ERR errcode;   //error set
+    HTTP_TYPE httptype;
     int writetime;
     int remaining;
     int send;
@@ -85,8 +33,9 @@ struct Clientinfo
         httphead = "none";
         info = "none";
         filename = "none";
-        status = NONE;
-        httptype = NONE;
+        status = PNONE;
+        errcode = ENONE;
+        httptype = HNONE;
         writetime = 0;
         remaining = 0;
         send = 0;
@@ -101,6 +50,7 @@ struct Clientinfo
         info = tmp.info;
         filename = tmp.filename;
         status = tmp.status;
+        errcode = tmp.errcode;
         httptype = tmp.httptype;
         writetime = tmp.writetime;
         remaining = tmp.remaining;
@@ -116,6 +66,7 @@ struct Clientinfo
         info = tmp.info;
         filename = tmp.filename;
         status = tmp.status;
+        errcode = tmp.errcode;
         httptype = tmp.httptype;
         writetime = tmp.writetime;
         remaining = tmp.remaining;
@@ -125,17 +76,22 @@ struct Clientinfo
         session = tmp.session;
         return *this;
     }
-    void reset()
+    void Reset()
     {
         readbuf.clear();
         httphead.clear();
         info.clear();
-        status = NONE;
-        httptype = NONE;
+        status = PNONE;
+        errcode = ENONE;
+        httptype = HNONE;
         writetime = 0;
         remaining = 0;
         send = 0;
         filefd = -1;
+    }
+    const char * Strerror(int codenum)
+    {
+        return servcode_map[-codenum % -ERRORLAST]; 
     }
     ~Clientinfo() = default;
     //session sockfd在关闭时处理
@@ -145,7 +101,7 @@ struct Clientinfo
 typedef std::shared_ptr<Clientinfo> CLIENT;
 
 //判断请求类型
-Method Httptype(std::string httphead)
+HTTP_TYPE Httptype(std::string httphead)
 {
     if (httphead.find_first_of("GET") == 0)
     {

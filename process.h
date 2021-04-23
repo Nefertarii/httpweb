@@ -17,18 +17,18 @@ private:
 
 public:
     ReadProcess(CLIENT *cli_p) { cli = cli_p; }
-    Method Read();
-    Method GETprocess();
-    Method POSTprocess();
-    Method POSTLogin();
-    Method POSTReset();
-    Method POSTCreate();
-    Method POSTVote();
-    Method POSTComment();
-    Method POSTContent();
-    Method POSTReadcount();
+    int Read();
+    int GETprocess();
+    int POSTprocess();
+    int POSTLogin();
+    int POSTReset();
+    int POSTCreate();
+    int POSTVote();
+    int POSTComment();
+    int POSTContent();
+    int POSTReadcount();
     void POSTChoess(std::string method);
-    Method POSTChoess(Method method);
+    int POSTChoess(SERV_PROCESS method);
     std::string Serverstate(int state);
     ~ReadProcess() {}
 };
@@ -45,37 +45,37 @@ public:
     ~WriteProcess() {}
 };
 
-Method ReadProcess::Read()
+int ReadProcess::Read()
 {
     int n = serv::HTTPread(cli->get()->sockfd, &(cli->get()->readbuf));
     if (n == 1)
     { //read success.
         cli->get()->httptype = Httptype(cli->get()->readbuf);
         cli->get()->status = HTTP_READ_OK;
-        return OK;
+        return 1;
     }
     else if (n == 0)
     { //read to large.
         std::cout << " size to big.\n";
-        cli->get()->status = HTTP_READ_FAIL;
-        return ERROR;
+        cli->get()->errcode = SIZE_TO_LARGE;
+        return -1;
     }
     else
     { //client close
         std::cout << " client close.\n";
-        cli->get()->status = HTTP_READ_FAIL;
-        return ERROR;
+        cli->get()->errcode = CLIENT_CLOSE;
+        return -1;
     }
 }
-Method ReadProcess::GETprocess()
+int ReadProcess::GETprocess()
 {                              //GET只用于发送页面文件
     std::string filedir = DIR; //先添加文件的位置
     std::string filename;
-    filename = serv::Substr(cli->get()->readbuf, 5); //GET=5
+    filename = serv::Substr(cli->get()->readbuf, 5); //GET begin for 5 
     if (filename.length() < 1)
     {
-        cli->get()->status = NOT_THIS_FILE;
-        return ERROR;
+        cli->get()->errcode = NOT_THIS_FILE;
+        return -1;
     }
     filedir += filename;
     cli->get()->filename = filedir;
@@ -85,28 +85,27 @@ Method ReadProcess::GETprocess()
     { //读取成功
         Responehead(200, filedir, cli);
         cli->get()->status = FILE_READ_OK;
-        return OK;
+        return 1;
     }
     else
     { //open/stat出错
-        cli->get()->status = FILE_READ_FAIL;
-        return ERROR;
+        cli->get()->errcode = FILE_READ_FAIL;
+        return -1;
     }
 }
-Method ReadProcess::POSTprocess()
+int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
     std::string location = serv::Substr(cli->get()->readbuf, 6); //POST=6
     if(location.length() < 1)
     {
-        cli->get()->status = POST_LOCATION_ERROR;
-        return ERROR;
+        cli->get()->errcode = POST_LOCATION_ERROR;
+        return -1;
     }
-    if (POSTChoess(location) == ERROR) {
-        return ERROR;
+    if (POSTChoess(location) < 0) {
+        cli->get()->errcode = POST_LOCATION_ERROR;
+        return -1;
     }
-    POSTChoess(cli->get()->status);
-
     //获取数据.
     int beg = 0, end = cli->get()->readbuf.length();
     while (beg < 200)
@@ -116,21 +115,21 @@ Method ReadProcess::POSTprocess()
         beg++;
     }
     if (beg <= 200 && 0 < beg)
-    { //从尾部开始中截取数据
+    { //从尾部开始中截取数据暂存入info中 待完成后准备写时再覆盖
         cli->get()->info = readbuf.substr((end - beg + 1), beg);
     }
     else
     { //数据过长或没有设置
-        cli->get()->status = TypeERROR;
-        return ERROR;
+        cli->get()->errcode = POST_INFO_ERROR;
+        return -1;
     }
-    return OK;
+    return 1;
 
 
 
 
 }
-Method ReadProcess::POSTChoess(std::string method)
+int ReadProcess::POSTChoess(std::string method)
 {
     if (method == "Login")
         cli->get()->status = Login;
@@ -149,12 +148,12 @@ Method ReadProcess::POSTChoess(std::string method)
     else if (method == "Readcount")
         cli->get()->status = Readcount;
     else {
-        cli->get()->status = TypeERROR;
-        return ERROR;
+        cli->get()->status = PNONE;
+        return -1;
     }
-    return OK;
+    return 1;
 }
-Method ReadProcess::POSTChoess(Method method)
+int ReadProcess::POSTChoess(SERV_PROCESS method)
 {
     switch (method)
     {
