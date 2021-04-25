@@ -72,89 +72,75 @@ void Server::Start()
             {
                 Acceptconnect();
             }
-            else
+            else if (ev.events & EPOLLIN)
             {
-                if (ev.events & EPOLLIN)
+                CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
+                ReadProcess client(cli);
+                std::cout << "\nRead... ";
+                if (client.Read())
                 {
-                    CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
-                    ReadProcess client(cli);
-                    std::cout << "\nRead... ";
-                    if (client.Read())
+                    std::cout << "OK. ";
+                    switch (cli->get()->httptype)
                     {
-                        std::cout << "OK. ";
-                        switch (cli->get()->httptype)
+                    case GET:
+                        if (client.GETprocess())
                         {
-                        case GET:
-                            if (client.GETprocess())
-                            {
-                                std::cout << "process success.\n"
-                                          << "file:" << cli->get()->filename;
-                                Epollwrite(cli);
-                            }
-                            else //GET process fail
-                            {
-                                cli->get()->Strerror();
-                                BadRequest(404, cli);
-                                Epollwrite(cli);
-                            }
-                            break;
-                        case POST:
-                            if (client.POSTprocess())
-                            {
-                                std::cout << cli->get()->readbuf;
-                                client.POSTChoess(cli->get()->status);
-                                Epollwrite(cli);
-                            }
-                            else
-                            {
-                                cli->get()->Strerror();
-                                Responehead(403, "page403.html", cli);
-                                Epollwrite(cli);
-                            }
-                            break;
-                        default:
-                            cli->get()->Strerror();
-                            Closeclient(cli);
-                            break;
+                            std::cout << "process success.\n"
+                                      << "file:" << cli->get()->filename;
+                            Epollwrite(cli);
                         }
-                    }
-                    else
-                    {
+                        else //GET process fail
+                        {
+                            cli->get()->Strerror();
+                            BadRequest(404, cli);
+                            Epollwrite(cli);
+                        }
+                        break;
+                    case POST:
+                        if (client.POSTprocess())
+                        {
+                            std::cout <<"\n"<< cli->get()->readbuf;
+                            client.POSTChoess(cli->get()->status);
+                            Epollwrite(cli);
+                        }
+                        else
+                        {
+                            cli->get()->Strerror();
+                            Responehead(403, "page403.html", cli);
+                            Epollwrite(cli);
+                        }
+                        break;
+                    default:
                         cli->get()->Strerror();
                         Closeclient(cli);
+                        break;
                     }
                 }
-                else if (ev.events & EPOLLOUT)
+                else
                 {
-                    //Socketwrite(ev.data.ptr);
-                    CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
-                    WriteProcess client(cli);
-                    std::cout << "\nWrite ";
-                    if (cli->get()->status == FILE_READ_OK) //write file
+                    cli->get()->Strerror();
+                    Closeclient(cli);
+                }
+            }
+            else if (ev.events & EPOLLOUT)
+            {
+                //Socketwrite(ev.data.ptr);
+                CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
+                WriteProcess client(cli);
+                std::cout << "\nWrite ";
+                if (cli->get()->status == FILE_READ_OK) //write file
+                {
+                AGAIN:
+                    cli->get()->Strstate();
+                    if (client.Writehead())
                     {
-                    AGAIN:
+                        std::cout << "done.  ";
                         cli->get()->Strstate();
-                        if (client.Writehead())
+                        if (client.Writefile())
                         {
-                            std::cout << "done.  ";
-                            cli->get()->Strstate();
-                            if (client.Writefile())
-                            {
-                                std::cout << "done. write times:"
-                                          << cli->get()->writetime;
-                                Epollread(cli);
-                            }
-                            else if (cli->get()->errcode == WRITE_AGAIN)
-                            {
-                                cli->get()->Strerror();
-                                goto AGAIN;
-                            }
-                            else
-                            {
-                                cli->get()->Strerror();
-                                serv::err_sys(" errno:");
-                                Closeclient(cli);
-                            }
+                            std::cout << "done. write times:"
+                                      << cli->get()->writetime;
+                            Epollread(cli);
                         }
                         else if (cli->get()->errcode == WRITE_AGAIN)
                         {
@@ -163,31 +149,47 @@ void Server::Start()
                         }
                         else
                         {
-                            std::cout << "fail. ";
                             cli->get()->Strerror();
+                            serv::err_sys(" errno:");
                             Closeclient(cli);
                         }
                     }
-                    else if (cli->get()->info.length() > 0) //write info(json ...)
+                    else if (cli->get()->errcode == WRITE_AGAIN)
                     {
-                        std::cout << "info. ";
-                        client.Writehead();
-                        client.Writeinfo();
-                        if (cli->get()->errcode == WRITE_INFO_FAIL)
-                        {
-                            Closeclient(cli);
-                        }
-                        else
-                        {
-                            Epollread(cli);
-                        }
+                        cli->get()->Strerror();
+                        goto AGAIN;
                     }
-                    else //error
+                    else
                     {
-                        std::cout << "error. ";
+                        std::cout << "fail. ";
+                        cli->get()->Strerror();
                         Closeclient(cli);
                     }
                 }
+                else if (cli->get()->info.length() > 0) //write info(json ...)
+                {
+                    std::cout << "info. ";
+                    client.Writehead();
+                    client.Writeinfo();
+                    if (cli->get()->errcode == WRITE_INFO_FAIL)
+                    {
+                        Closeclient(cli);
+                    }
+                    else
+                    {
+                        Epollread(cli);
+                    }
+                }
+                else //error
+                {
+                    client.Writehead();
+                    std::cout << "error. ";
+                    Closeclient(cli);
+                }
+            }
+            else 
+            {
+                ;
             }
         }
     }

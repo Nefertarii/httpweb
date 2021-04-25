@@ -66,7 +66,7 @@ enum SERV_PROCESS
 
 const char *serverr_map[] =
 {
-    [-ENONE]                    = "Server undefine error. ",
+    [-ENONE]                    = "Undefine Server error. ",
     [-Comment_Fail]             = "Comment fail. ",
     [-Content_Fail]             = "Content fail. ",
     [-Readcount_Fail]           = "Readcound add fail. ",
@@ -84,13 +84,13 @@ const char *serverr_map[] =
     [-POST_INFO_ERROR]          = "Post info too long or not set. ",
     [-POST_LOCATION_ERROR]      = "Post location error. ",
     [-SIZE_TO_LARGE]            = "Read size to large. ",
-    [-CLIENT_CLOSE]             = "Read fail, client close. ",
+    [-CLIENT_CLOSE]             = "Read/Write fail, client close. ",
     [-WRITE_AGAIN]              = "Kernel cache full do again. "
 };
 
 const char *servstate_map[] =
 {
-    [SNONE]                    = "Server state error",  
+    [SNONE]                    = "Undefine Server state error",  
     [Login]                    = "Now login...",
     [Reset]                    = "Now reset password...",
     [Create]                   = "Now create account...",

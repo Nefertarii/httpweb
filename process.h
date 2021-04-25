@@ -72,7 +72,7 @@ int ReadProcess::GETprocess()
 {                              //GET只用于发送页面文件
     std::string filedir = DIR; //先添加文件的位置
     std::string filename;
-    filename = serv::Substr(cli->get()->readbuf, 5); //GET begin for 5
+    filename = serv::Substr(cli->get()->readbuf, 5, ' '); //GET begin for 5
     if (filename.length() < 1)
     {
         cli->get()->errcode = NOT_THIS_FILE;
@@ -97,13 +97,13 @@ int ReadProcess::GETprocess()
 int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
-    std::string location = serv::Substr(cli->get()->readbuf, 6); //POST=6
-    if (location.length() < 1)
+    std::string location = serv::Substr(cli->get()->readbuf, 6, ' '); //POST=6
+    if (location.length() < 1)//to long
     {
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
-    if (POSTChoess(location) < 0)
+    if (POSTChoess(location) < 0)//post type error
     {
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
@@ -155,7 +155,7 @@ int ReadProcess::POSTChoess(std::string method)
 }
 int ReadProcess::POSTChoess(SERV_PROCESS method)
 {
-    std::cout << "done.";
+    std::cout << "\ndone.";
     switch (method)
     {
     case Login:

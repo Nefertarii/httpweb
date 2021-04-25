@@ -48,7 +48,7 @@ namespace serv
     int Readfile(CLIENT *cli);
     int HTTPwrite(std::string info, int sockfd);
     int Writefile(off_t offset, int remaining, int sockfd, int filefd);
-    std::string Substr(std::string readbuf, int beg);
+    std::string Substr(std::string readbuf, int beg_i, char end_c);
 }
 
 int serv::Socket(int family, int type, int protocol)
@@ -247,12 +247,12 @@ int serv::Writefile(off_t offset, int remaining, int sockfd, int filefd)
     }
 }
 
-std::string serv::Substr(std::string readbuf, int beg_)
+std::string serv::Substr(std::string readbuf, int beg_i, char end_c)
 {
-    int beg = beg_, end = 0;
+    int beg = beg_i, end = 0;
     while (end <= 100)
-    { //开始读取要求的文件位置
-        if (readbuf[end + beg] == ' ')
+    { //开始读取要求的文件位置直至遇到到指定字符结束
+        if (readbuf[end + beg] == end_c)
             break;
         end++;
     }
@@ -266,7 +266,6 @@ std::string serv::Substr(std::string readbuf, int beg_)
     }
     else
     { //文件地址要求过长
-        std::cout << " size to long.";
         return "";
     }
     //return "";
