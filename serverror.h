@@ -12,18 +12,19 @@ enum SERV_ERR
     Create_Fail = -6,
     Reset_Fail = -7,
     Login_Fail = -8,
-
     WRITE_FAIL = -9,
-    WRITE_FILE_FAIL = -10,
-    FILE_READ_FAIL = -11,
-    NOT_THIS_FILE = -12,
-    POST_INFO_ERROR = -13,
-    POST_LOCATION_ERROR = -14,
-    SIZE_TO_LARGE = -15,
-    CLIENT_CLOSE = -16,
 
-    ERRORLAST = (1 << 31),
-}
+    WRITE_FILE_FAIL = -10,
+    WRITE_INFO_FAIL = -11,
+    FILE_READ_FAIL = -12,
+    NOT_THIS_FILE = -13,
+    POST_INFO_ERROR = -14,
+    POST_LOCATION_ERROR = -15,
+    SIZE_TO_LARGE = -16,
+    CLIENT_CLOSE = -17,
+
+    ERRORLAST = -(1 << 30),
+};
 
 enum HTTP_TYPE
 {
@@ -31,38 +32,39 @@ enum HTTP_TYPE
     HNONE,
     GET,
     POST,
-}
+};
 
 enum SERV_PROCESS
 {
-    PNONE = 0,
+    SNONE = 0,
+    Login,
+    Reset,
+    Create,
+    Vote_Up,
+    Vote_Down,
+    Comment,
+    Content,
+    Readcount,
     HTTP_READ_OK,
     FILE_READ_OK,
     POST_INFO_OK,
     POST_LOCATION_OK,
     WRITE_OK,
     WRITE_FILE_OK,
-    Login,
     Login_OK,
-    Reset,
     Reset_OK,
-    Create,
     Create_OK,
-    Vote_Up,
     Vote_Up_OK,
-    Vote_Down,
     VOte_Down_OK,
-    Comment,
     Comment_OK,
-    Content,
     Content_OK,
-    Readcount,
-    Readcount_OK
+    Readcount_OK,
+    STATELAST_ = (1 << 30)
 };
 
-const char *servcode_map[] =
+const char *serverr_map[] =
 {
-    [-ENONE]                    = "See server error code",
+    [-ENONE]                    = "Server error",
     [-Comment_Fail]             = "Comment fail",
     [-Content_Fail]             = "Content fail",
     [-Readcount_Fail]           = "Readcound add fail",
@@ -71,13 +73,27 @@ const char *servcode_map[] =
     [-Create_Fail]              = "Create account fail",
     [-Reset_Fail]               = "Reset account password fail",
     [-Login_Fail]               = "Login fail",
-    [-WRITE_FAIL]               = "Write fail please see errno",
-    [-WRITE_FILE_FAIL]          = "Write file fail please see errno",
-    [-FILE_READ_FAIL]           = "Read file fail please see errno",
+    [-WRITE_FAIL]               = "Write fail please see system errno",
+    [-WRITE_FILE_FAIL]          = "Write file fail please see system errno",
+    [-WRITE_INFO_FAIL]          = "Write info fail please see system errno",
+    [-FILE_READ_FAIL]           = "Read file fail please see system errno",
+    [-NOT_THIS_FILE]            = "Not this file.",
     [-POST_INFO_ERROR]          = "Post info too long or not set",
     [-POST_LOCATION_ERROR]      = "Post location error",
     [-SIZE_TO_LARGE]            = "Read size to large",
     [-CLIENT_CLOSE]             = "Read fail, client close"
 };
 
+const char *servstate_map[] =
+{
+    [SNONE]                    = "Server state error",  
+    [Login]                    = "Now login...",
+    [Reset]                    = "Now reset password...",
+    [Create]                   = "Now create account...",
+    [Vote_Up]                  = "Now vote up...",
+    [Vote_Down]                = "Now vote down...",
+    [Comment]                  = "Now comment...",
+    [Content]                  = "Now content...",
+    [Readcount]                = "Readcount add..."
+};
 #endif

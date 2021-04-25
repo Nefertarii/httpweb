@@ -10,6 +10,7 @@ extern const std::string PAGE401;
 extern const std::string PAGE403;
 extern const std::string PAGE404;
 
+int Loginprocess(std::string userinfo, std::string *username, std::string *password);
 class ReadProcess
 {
 private:
@@ -27,8 +28,8 @@ public:
     int POSTComment();
     int POSTContent();
     int POSTReadcount();
-    void POSTChoess(std::string method);
     int POSTChoess(SERV_PROCESS method);
+    int POSTChoess(std::string method);
     std::string Serverstate(int state);
     ~ReadProcess() {}
 };
@@ -39,9 +40,9 @@ private:
 
 public:
     WriteProcess(CLIENT *cli_p) { cli = cli_p; }
-    Method Writehead();
-    Method Writefile();
-    Method Writeinfo();
+    int Writehead();
+    int Writefile();
+    int Writeinfo();
     ~WriteProcess() {}
 };
 
@@ -110,13 +111,13 @@ int ReadProcess::POSTprocess()
     int beg = 0, end = cli->get()->readbuf.length();
     while (beg < 200)
     { //读取请求的数据
-        if (readbuf[end - beg] == '\n')
+        if (cli->get()->readbuf[end - beg] == '\n')
             break;
         beg++;
     }
     if (beg <= 200 && 0 < beg)
     { //从尾部开始中截取数据暂存入info中 待完成后准备写时再覆盖
-        cli->get()->info = readbuf.substr((end - beg + 1), beg);
+        cli->get()->info = cli->get()->readbuf.substr((end - beg + 1), beg);
     }
     else
     { //数据过长或没有设置
@@ -124,10 +125,6 @@ int ReadProcess::POSTprocess()
         return -1;
     }
     return 1;
-
-
-
-
 }
 int ReadProcess::POSTChoess(std::string method)
 {
@@ -148,76 +145,111 @@ int ReadProcess::POSTChoess(std::string method)
     else if (method == "Readcount")
         cli->get()->status = Readcount;
     else {
-        cli->get()->status = PNONE;
+        cli->get()->status = SNONE;
+        cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
     return 1;
 }
 int ReadProcess::POSTChoess(SERV_PROCESS method)
 {
+    std::cout << "done.";
     switch (method)
     {
     case Login:
-        std::cout << "done. Login...";
-        POSTLogin();
-        break;
+        cli->get()->Strstate();
+        if (POSTLogin()) {
+            cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
+            Responehead(200, "login.js", cli);
+            cli->get()->status = Login_OK;
+            return 1;//成功操作
+        }
+        cli->get()->info = "{\"session\":\"fail\"}";
+        Responehead(200, "login.js", cli);
+        cli->get()->errcode = Login_Fail;
+        return -1;//失败操作 返回后直接进入写状态
     case Reset:
         /* code */
-        POSTReset();
+        //POSTReset();
         break;
     case Create:
         /* code */
-        POSTCreate();
+        //POSTCreate();
         break;
     case Vote_Up:
         /* code */
-        POSTVote();
+        //POSTVote();
         break;
     case Vote_Down:
         /* code */
-        POSTVote();
+        //POSTVote();
         break;
     case Comment:
         /* code */
-        POSTComment();
+        //POSTComment();
         break;
     case Content:
         /* code */
-        POSTContent();
+        //POSTContent();
         break;
     case Readcount:
         /* code */
-        PSOTReadcount();
+        //POSTReadcount();
         break;
     default:
         /* code */
-        return ERROR;
+        cli->get()->errcode = POST_LOCATION_ERROR;
+        return -1;
     }
+    return -1;
+}
+int ReadProcess::POSTLogin()
+{
+    std::string username, password;
+    if (Loginprocess(cli->get()->info, &username, &password))
+    {
+        if(username=="123"&&password=="123")
+        {
+            return 1;
+        }
+        else
+        {
+            return -1;
+        }
+        
+    }
+    else
+    {
+        cli->get()->errcode = Login_Fail;
+        cli->get()->status = SNONE;
+        cli->get()->Strerror();
+        return -1;
+    }
+    return -1;
 }
 
-
-Method WriteProcess::Writehead()
+int WriteProcess::Writehead()
 {
     int n = serv::HTTPwrite(cli->get()->httphead, cli->get()->sockfd);
     if (n == 1)
     {
         cli->get()->httphead.clear();
-        cli->get()->status = WRITE_HEAD_OK;
-        return OK;
+        cli->get()->status = WRITE_OK;
+        return 1;
     }
     else if (n == 0)
     {
-        cli->get()->status = WRITE_HEAD_FAIL;
-        return ERROR;
+        cli->get()->errcode = WRITE_FAIL;
+        return -1;
     }
     else if (n == -1)
     {
-        cli->get()->status = WRITE_HEAD_FAIL;
-        return ERROR;
+        cli->get()->errcode = WRITE_FAIL;
+        return -1;
     }
-    return ERROR;
+    return -1;
 }
-Method WriteProcess::Writefile()
+int WriteProcess::Writefile()
 {
     for (;;)
     {
@@ -226,8 +258,8 @@ Method WriteProcess::Writefile()
             int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
             if (n < 0)
             {
-                cli->get()->status = WRITE_FILE_FAIL;
-                return ERROR;
+                cli->get()->errcode = WRITE_FAIL;
+                return -1;
             }
             cli->get()->send += WRITE_BUF_SIZE;
             cli->get()->remaining -= WRITE_BUF_SIZE;
@@ -238,17 +270,17 @@ Method WriteProcess::Writefile()
             int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
             if (n < 0)
             {
-                cli->get()->status = WRITE_FILE_FAIL;
-                return ERROR;
+                cli->get()->errcode = WRITE_FAIL;
+                return -1;
             }
-            cli->get()->reset();
+            cli->get()->Reset();
             cli->get()->writetime += 1;
-            cli->get()->status = WRITE_FILE_OK;
-            return OK;
+            cli->get()->status = WRITE_OK;
+            return 1;
         }
     }
 }
-Method WriteProcess::Writeinfo()
+int WriteProcess::Writeinfo()
 {
     for (;;)
     {
@@ -257,8 +289,8 @@ Method WriteProcess::Writeinfo()
             int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
             if (n < 0)
             {
-                cli->get()->status = WRITE_INFO_FAIL;
-                return ERROR;
+                cli->get()->errcode = WRITE_FAIL;
+                return -1;
             }
             cli->get()->send += WRITE_BUF_SIZE;
             cli->get()->remaining -= WRITE_BUF_SIZE;
@@ -269,23 +301,24 @@ Method WriteProcess::Writeinfo()
             int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
             if (n < 0)
             {
-                cli->get()->status = WRITE_INFO_FAIL;
-                return ERROR;
+                cli->get()->errcode = WRITE_FAIL;
+                return -1;
             }
-            cli->get()->reset();
+            cli->get()->Reset();
             cli->get()->writetime += 1;
-            cli->get()->status = WRITE_INFO_OK;
-            return OK;
+            cli->get()->status = WRITE_OK;
+            return 1;
         }
     }
 }
+
 
 //对登录数据进行截取、判断
 //成功返回1 否则返回-1
 int Loginprocess(std::string userinfo, std::string *username, std::string *password)
 {
     int beg = 9, end = 0;
-    for (;;)
+    for (;;)//最长读取50位名字/邮箱
     {
         if (userinfo[beg + end] == '&')
         {
@@ -293,14 +326,14 @@ int Loginprocess(std::string userinfo, std::string *username, std::string *passw
             break;
         }
         if (end == 51)
-        { //最长读取50位名字/邮箱
+        { 
             return -1;
         }
         end++;
     }
     beg = beg + end + 10;
     end = 0;
-    for (;;)
+    for (;;)//最长读取20位密码
     {
         if (userinfo[beg + end] == '&')
         {
@@ -308,13 +341,14 @@ int Loginprocess(std::string userinfo, std::string *username, std::string *passw
             break;
         }
         if (end == 21)
-        { //最长读取20位密码
+        { 
             return -1;
         }
         end++;
     }
     return 1;
 }
+
 //返回验证码
 //根据状态码不同写入不同的json
 void Jsonprocess(int state, CLIENT *cli)

@@ -85,7 +85,6 @@ void Server::Start()
                         switch (cli->get()->httptype)
                         {
                         case GET:
-                        {
                             if (client.GETprocess())
                             {
                                 std::cout << "process sucess.\n"
@@ -99,12 +98,11 @@ void Server::Start()
                                 Epollwrite(cli);
                             }
                             break;
-                        }
                         case POST:
-                        {
                             if (client.POSTprocess())
                             {
-                                POSTChoess(cli->get()->status);
+                                client.POSTChoess(cli->get()->status);
+                                Epollwrite(cli);
                             }
                             else 
                             {
@@ -113,13 +111,10 @@ void Server::Start()
                                 Epollwrite(cli);
                             }
                             break;
-                        }
                         default:
-                        {
                             cli->get()->Strerror();
                             Closeclient(cli);
                             break;
-                        }
                         }
                     }
                     else
@@ -134,27 +129,20 @@ void Server::Start()
                     CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                     WriteProcess client(cli);
                     std::cout << "\nWrite ";
-                    switch (cli->get()->status)
-                    {
-                    case /* constant-expression */:
-                        /* code */
-                        break;
-
-                    default:
-                        break;
-                    }
-
                     if (cli->get()->status == FILE_READ_OK) //write file
                     {
-                        std::cout << "file. write head...";
+                        std::cout << "  ";
+                        cli->get()->Strstate();
                         client.Writehead();
-                        if (cli->get()->status == WRITE_HEAD_OK)
+                        if (cli->get()->status == WRITE_OK)
                         {
-                            std::cout << "done. write file...";
+                            std::cout << "done.  ";
+                            cli->get()->Strstate();
                             client.Writefile();
-                            if (cli->get()->status == WRITE_FILE_FAIL)
+                            if (cli->get()->errcode == WRITE_FILE_FAIL)
                             {
                                 std::cout << "fail. ";
+                                cli->get()->Strerror();
                                 Closeclient(cli);
                             }
                             else
@@ -167,24 +155,22 @@ void Server::Start()
                         else
                         {
                             std::cout << "fail. ";
+                            cli->get()->Strerror();
                             Closeclient(cli);
                         }
                     }
-                    else if (cli->get()->status ==) //write info(json ...)
+                    else if (cli->get()->info.length() > 0) //write info(json ...)
                     {
                         std::cout << "info. ";
                         client.Writehead();
-                        if (cli->get()->status == WRITE_HEAD_OK)
+                        client.Writeinfo();
+                        if (cli->get()->errcode == WRITE_INFO_FAIL)
                         {
-                            client.Writeinfo();
-                            if (cli->get()->status == WRITE_INFO_FAIL)
-                            {
-                                Closeclient(cli);
-                            }
-                            else
-                            {
-                                Epollread(cli);
-                            }
+                            Closeclient(cli);
+                        }
+                        else
+                        {
+                            Epollread(cli);
                         }
                     }
                     else //error

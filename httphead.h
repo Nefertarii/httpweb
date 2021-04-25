@@ -33,7 +33,7 @@ struct Clientinfo
         httphead = "none";
         info = "none";
         filename = "none";
-        status = PNONE;
+        status = SNONE;
         errcode = ENONE;
         httptype = HNONE;
         writetime = 0;
@@ -81,7 +81,7 @@ struct Clientinfo
         readbuf.clear();
         httphead.clear();
         info.clear();
-        status = PNONE;
+        status = SNONE;
         errcode = ENONE;
         httptype = HNONE;
         writetime = 0;
@@ -91,7 +91,19 @@ struct Clientinfo
     }
     const char * Strerror(int codenum)
     {
-        return servcode_map[-codenum % -ERRORLAST]; 
+        return serverr_map[-codenum % -ERRORLAST]; 
+    }
+    const char * Strerror()
+    {
+        return serverr_map[-status % -ERRORLAST]; 
+    }
+    const char * Strstate(int codenum)
+    {
+        return servstate_map[codenum % -STATELAST_]; 
+    }
+    const char * Strstate()
+    {
+        return servstate_map[errcode % -STATELAST_]; 
     }
     ~Clientinfo() = default;
     //session sockfd在关闭时处理
