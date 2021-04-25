@@ -72,7 +72,7 @@ int ReadProcess::GETprocess()
 {                              //GET只用于发送页面文件
     std::string filedir = DIR; //先添加文件的位置
     std::string filename;
-    filename = serv::Substr(cli->get()->readbuf, 5); //GET begin for 5 
+    filename = serv::Substr(cli->get()->readbuf, 5); //GET begin for 5
     if (filename.length() < 1)
     {
         cli->get()->errcode = NOT_THIS_FILE;
@@ -98,12 +98,13 @@ int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
     std::string location = serv::Substr(cli->get()->readbuf, 6); //POST=6
-    if(location.length() < 1)
+    if (location.length() < 1)
     {
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
-    if (POSTChoess(location) < 0) {
+    if (POSTChoess(location) < 0)
+    {
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
@@ -144,7 +145,8 @@ int ReadProcess::POSTChoess(std::string method)
         cli->get()->status = Content;
     else if (method == "Readcount")
         cli->get()->status = Readcount;
-    else {
+    else
+    {
         cli->get()->status = SNONE;
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
@@ -158,16 +160,17 @@ int ReadProcess::POSTChoess(SERV_PROCESS method)
     {
     case Login:
         cli->get()->Strstate();
-        if (POSTLogin()) {
+        if (POSTLogin())
+        {
             cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
             Responehead(200, "login.js", cli);
             cli->get()->status = Login_OK;
-            return 1;//成功操作
+            return 1; //成功操作
         }
         cli->get()->info = "{\"session\":\"fail\"}";
         Responehead(200, "login.js", cli);
         cli->get()->errcode = Login_Fail;
-        return -1;//失败操作 返回后直接进入写状态
+        return -1; //失败操作 返回后直接进入写状态
     case Reset:
         /* code */
         //POSTReset();
@@ -208,7 +211,7 @@ int ReadProcess::POSTLogin()
     std::string username, password;
     if (Loginprocess(cli->get()->info, &username, &password))
     {
-        if(username=="123"&&password=="123")
+        if (username == "123" && password == "123")
         {
             return 1;
         }
@@ -216,7 +219,6 @@ int ReadProcess::POSTLogin()
         {
             return -1;
         }
-        
     }
     else
     {
@@ -231,23 +233,19 @@ int ReadProcess::POSTLogin()
 int WriteProcess::Writehead()
 {
     int n = serv::HTTPwrite(cli->get()->httphead, cli->get()->sockfd);
-    if (n == 1)
+    if (n <= 0)
     {
-        cli->get()->httphead.clear();
-        cli->get()->status = WRITE_OK;
-        return 1;
-    }
-    else if (n == 0)
-    {
+        if (n == 0)
+        {
+            cli->get()->errcode = WRITE_AGAIN;
+            return 0;
+        }
         cli->get()->errcode = WRITE_FAIL;
         return -1;
     }
-    else if (n == -1)
-    {
-        cli->get()->errcode = WRITE_FAIL;
-        return -1;
-    }
-    return -1;
+    cli->get()->httphead.clear();
+    cli->get()->status = WRITE_OK;
+    return 1;
 }
 int WriteProcess::Writefile()
 {
@@ -287,8 +285,13 @@ int WriteProcess::Writeinfo()
         if (cli->get()->remaining > WRITE_BUF_SIZE)
         {
             int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
-            if (n < 0)
+            if (n <= 0)
             {
+                if (n == 0)
+                {
+                    cli->get()->errcode = WRITE_AGAIN;
+                    return 0;
+                }
                 cli->get()->errcode = WRITE_FAIL;
                 return -1;
             }
@@ -299,8 +302,13 @@ int WriteProcess::Writeinfo()
         else
         {
             int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
-            if (n < 0)
+            if (n <= 0)
             {
+                if (n == 0)
+                {
+                    cli->get()->errcode = WRITE_AGAIN;
+                    return 0;
+                }
                 cli->get()->errcode = WRITE_FAIL;
                 return -1;
             }
@@ -312,13 +320,12 @@ int WriteProcess::Writeinfo()
     }
 }
 
-
 //对登录数据进行截取、判断
 //成功返回1 否则返回-1
 int Loginprocess(std::string userinfo, std::string *username, std::string *password)
 {
     int beg = 9, end = 0;
-    for (;;)//最长读取50位名字/邮箱
+    for (;;) //最长读取50位名字/邮箱
     {
         if (userinfo[beg + end] == '&')
         {
@@ -326,14 +333,14 @@ int Loginprocess(std::string userinfo, std::string *username, std::string *passw
             break;
         }
         if (end == 51)
-        { 
+        {
             return -1;
         }
         end++;
     }
     beg = beg + end + 10;
     end = 0;
-    for (;;)//最长读取20位密码
+    for (;;) //最长读取20位密码
     {
         if (userinfo[beg + end] == '&')
         {
@@ -341,7 +348,7 @@ int Loginprocess(std::string userinfo, std::string *username, std::string *passw
             break;
         }
         if (end == 21)
-        { 
+        {
             return -1;
         }
         end++;

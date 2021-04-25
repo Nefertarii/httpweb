@@ -87,7 +87,7 @@ void Server::Start()
                         case GET:
                             if (client.GETprocess())
                             {
-                                std::cout << "process sucess.\n"
+                                std::cout << "process success.\n"
                                           << "file:" << cli->get()->filename;
                                 Epollwrite(cli);
                             }
@@ -101,10 +101,11 @@ void Server::Start()
                         case POST:
                             if (client.POSTprocess())
                             {
+                                std::cout << cli->get()->readbuf;
                                 client.POSTChoess(cli->get()->status);
                                 Epollwrite(cli);
                             }
-                            else 
+                            else
                             {
                                 cli->get()->Strerror();
                                 Responehead(403, "page403.html", cli);
@@ -131,26 +132,34 @@ void Server::Start()
                     std::cout << "\nWrite ";
                     if (cli->get()->status == FILE_READ_OK) //write file
                     {
-                        std::cout << "  ";
+                    AGAIN:
                         cli->get()->Strstate();
-                        client.Writehead();
-                        if (cli->get()->status == WRITE_OK)
+                        if (client.Writehead())
                         {
                             std::cout << "done.  ";
                             cli->get()->Strstate();
-                            client.Writefile();
-                            if (cli->get()->errcode == WRITE_FILE_FAIL)
-                            {
-                                std::cout << "fail. ";
-                                cli->get()->Strerror();
-                                Closeclient(cli);
-                            }
-                            else
+                            if (client.Writefile())
                             {
                                 std::cout << "done. write times:"
                                           << cli->get()->writetime;
                                 Epollread(cli);
                             }
+                            else if (cli->get()->errcode == WRITE_AGAIN)
+                            {
+                                cli->get()->Strerror();
+                                goto AGAIN;
+                            }
+                            else
+                            {
+                                cli->get()->Strerror();
+                                serv::err_sys(" errno:");
+                                Closeclient(cli);
+                            }
+                        }
+                        else if (cli->get()->errcode == WRITE_AGAIN)
+                        {
+                            cli->get()->Strerror();
+                            goto AGAIN;
                         }
                         else
                         {
