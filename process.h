@@ -72,8 +72,12 @@ int ReadProcess::GETprocess()
 {                              //GET只用于发送页面文件
     std::string filedir = DIR; //先添加文件的位置
     std::string filename;
-    filename = serv::Substr(cli->get()->readbuf, 5, ' '); //GET begin for 5
-    if (filename.length() < 1)
+    filename = serv::Substr(cli->get()->readbuf, 5, 100, ' '); //GET begin for 5
+    if (filename == "0")
+    {
+        filename = "index.html";
+    }
+    if (filename == "-1")
     {
         cli->get()->errcode = NOT_THIS_FILE;
         return -1;
@@ -97,30 +101,20 @@ int ReadProcess::GETprocess()
 int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
-    std::string location = serv::Substr(cli->get()->readbuf, 6, ' '); //POST=6
-    if (location.length() < 1)//to long
+    std::string location = serv::Substr(cli->get()->readbuf, 6, 100, ' '); //POST=6
+    if (location == "-1") //to long
     {
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
-    if (POSTChoess(location) < 0)//post type error
+    if (POSTChoess(location) < 0) //post type error
     {
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
     //获取数据.
-    int beg = 0, end = cli->get()->readbuf.length();
-    while (beg < 200)
-    { //读取请求的数据
-        if (cli->get()->readbuf[end - beg] == '\n')
-            break;
-        beg++;
-    }
-    if (beg <= 200 && 0 < beg)
-    { //从尾部开始中截取数据暂存入info中 待完成后准备写时再覆盖
-        cli->get()->info = cli->get()->readbuf.substr((end - beg + 1), beg);
-    }
-    else
+    cli->get()->info = serv::Substr_Revers(cli->get()->readbuf, 200, '\n');
+    if (cli->get()->info == "-1")
     { //数据过长或没有设置
         cli->get()->errcode = POST_INFO_ERROR;
         return -1;
@@ -129,21 +123,21 @@ int ReadProcess::POSTprocess()
 }
 int ReadProcess::POSTChoess(std::string method)
 {
-    if (method == "Login")
+    if (method == "login")
         cli->get()->status = Login;
-    else if (method == "Reset")
+    else if (method == "reset")
         cli->get()->status = Reset;
-    else if (method == "Create")
+    else if (method == "create")
         cli->get()->status = Create;
-    else if (method == "Vote_Up")
+    else if (method == "vote_up")
         cli->get()->status = Vote_Up;
-    else if (method == "Vote_Down")
+    else if (method == "vote_down")
         cli->get()->status = Vote_Down;
-    else if (method == "Comment")
+    else if (method == "comment")
         cli->get()->status = Comment;
-    else if (method == "Content")
+    else if (method == "content")
         cli->get()->status = Content;
-    else if (method == "Readcount")
+    else if (method == "readcount")
         cli->get()->status = Readcount;
     else
     {
@@ -163,6 +157,7 @@ int ReadProcess::POSTChoess(SERV_PROCESS method)
         if (POSTLogin())
         {
             cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
+            cli->get()->remaining = cli->get()->info.length();
             Responehead(200, "login.js", cli);
             cli->get()->status = Login_OK;
             return 1; //成功操作
@@ -208,25 +203,28 @@ int ReadProcess::POSTChoess(SERV_PROCESS method)
 }
 int ReadProcess::POSTLogin()
 {
-    std::string username, password;
-    if (Loginprocess(cli->get()->info, &username, &password))
+    //对数据进行截取、判断
+    //成功返回1 否则返回-1
+    std::string username = serv::Substr(cli->get()->info, 0, 50, '&');
+    std::string password = serv::Substr_Revers(cli->get()->info, 20, '&');
+    std::cout << " username:" << username << " password:" << password;
+    if (username == "123" && password == "123") //从数据库获取
     {
-        if (username == "123" && password == "123")
-        {
-            return 1;
-        }
-        else
-        {
-            return -1;
-        }
+        return 1;
     }
-    else
+    /*
+    else if (username.length() > MAX_USERNAME || password.length() > MAX_PASSWORD)
     {
-        cli->get()->errcode = Login_Fail;
-        cli->get()->status = SNONE;
-        cli->get()->Strerror();
         return -1;
     }
+    else if (username.length() == 0 || password.length() == 0)
+    {
+        return -1;
+    }
+    */
+    cli->get()->errcode = Login_Fail;
+    cli->get()->status = SNONE;
+    cli->get()->Strerror();
     return -1;
 }
 
@@ -318,42 +316,6 @@ int WriteProcess::Writeinfo()
             return 1;
         }
     }
-}
-
-//对登录数据进行截取、判断
-//成功返回1 否则返回-1
-int Loginprocess(std::string userinfo, std::string *username, std::string *password)
-{
-    int beg = 9, end = 0;
-    for (;;) //最长读取50位名字/邮箱
-    {
-        if (userinfo[beg + end] == '&')
-        {
-            username->assign(userinfo, beg, end);
-            break;
-        }
-        if (end == 51)
-        {
-            return -1;
-        }
-        end++;
-    }
-    beg = beg + end + 10;
-    end = 0;
-    for (;;) //最长读取20位密码
-    {
-        if (userinfo[beg + end] == '&')
-        {
-            password->assign(userinfo, beg, end);
-            break;
-        }
-        if (end == 21)
-        {
-            return -1;
-        }
-        end++;
-    }
-    return 1;
 }
 
 //返回验证码

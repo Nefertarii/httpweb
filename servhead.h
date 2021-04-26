@@ -23,7 +23,9 @@ enum CONST_DEFINE
     TIMEOUT = 0,
     MAX_CLI = 50, //maximum number of client connections
     LISTEN_WAIT = 20,
-    INFTIM = (-1)
+    INFTIM = (-1),
+    MAX_USERNAME = 50,
+    MAX_PASSWORD = 50
 };
 extern const std::string DIR = "/home/ftp_dir/Webserver/Blog/";
 extern const std::string PAGE400 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html";
@@ -48,7 +50,8 @@ namespace serv
     int Readfile(CLIENT *cli);
     int HTTPwrite(std::string info, int sockfd);
     int Writefile(off_t offset, int remaining, int sockfd, int filefd);
-    std::string Substr(std::string readbuf, int beg_i, char end_c);
+    std::string Substr(std::string readbuf, int beg_i, int maxlength, char end_c);
+    std::string Substr_Revers(std::string readbuf, int maxlength, char end_c);
 }
 
 int serv::Socket(int family, int type, int protocol)
@@ -247,27 +250,48 @@ int serv::Writefile(off_t offset, int remaining, int sockfd, int filefd)
     }
 }
 
-std::string serv::Substr(std::string readbuf, int beg_i, char end_c)
+std::string serv::Substr(std::string readbuf, int beg_i, int maxlength, char end_c)
 {
     int beg = beg_i, end = 0;
-    while (end <= 100)
+    while (end <= maxlength)
     { //开始读取要求的文件位置直至遇到到指定字符结束
         if (readbuf[end + beg] == end_c)
             break;
         end++;
     }
     if (end == 0)
-    { //默认返回index.html
-        return "index.html";
+    { 
+        return "0";
     }
-    else if (end <= 100)
+    else if (end <= maxlength)
     { //截取文件名
         return readbuf.substr(beg, end);
     }
     else
     { //文件地址要求过长
-        return "";
+        return "-1";
     }
-    //return "";
+}
+std::string serv::Substr_Revers(std::string readbuf, int maxlength, char end_c)
+{
+    int beg = readbuf.length(), end = 0;
+    while (end <= maxlength)
+    { //开始读取要求的文件位置直至遇到到指定字符结束
+        if (readbuf[beg - end] == end_c)
+            break;
+        end++;
+    }
+    if (end == 0)
+    { 
+        return "0";
+    }
+    else if (end <= maxlength)
+    { //截取文件名
+        return readbuf.substr(beg - end + 1, end);
+    }
+    else
+    { //文件地址要求过长
+        return "-1";
+    }
 }
 #endif

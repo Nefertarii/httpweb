@@ -182,6 +182,7 @@ void Server::Start()
                 }
                 else //error
                 {
+                    std::cout << cli->get()->info;
                     client.Writehead();
                     std::cout << "error. ";
                     Closeclient(cli);
