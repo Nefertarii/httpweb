@@ -16,25 +16,25 @@ linux下用epoll和posix实现的项目
 						--GET请求 分析 处理(添加http头,文件处理...)
 						--POST请求 分析 处理(添加http头,表单处理...)
 				-记录数据(按情况分出请求的语句)
-				-更改该连接的状态至待写入
+				-更改该连接的状态至待写入并储存至缓存中
 		 	发送需要的文件/数据
 				-记录数据(记录发送的文件名 时间 对方地址)
 				-发送http头
 				-发送文件
-				-更改该连接状态至待读取
+				-发送完成后更改该连接状态至待读取否则再下次写入中继续未完成的处理
 
-[httphead.h](https://github.com/Nefertarii/httpweb/blob/main/httphead.h)   用于处理http请求 和添加需发送的http头
------------
+[httphead.h](https://github.com/Nefertarii/httpweb/blob/main/httphead.h)   		用于处理http请求和添加需发送的http头
 
-[servhead.h](https://github.com/Nefertarii/httpweb/blob/main/servhead.h)   包含了修改后的Socket函数以及其他需要使用的函数
-------------
+[jsonprocess.h](https://github.com/Nefertarii/httpweb/blob/main/jsonprocess.h)   	今后的JSON处理都在此文件中添加
 
-[serverprocess.h](https://github.com/Nefertarii/httpweb/blob/main/serverprocess.h)   服务器所有操作都在该类中进行
---------------
+[localinfo.h](https://github.com/Nefertarii/httpweb/blob/main/localinfo.h)   		临时的代替mySQL
 
-[jsonprocess.h](https://github.com/Nefertarii/httpweb/blob/main/jsonprocess.h)  今后的JSON处理都在此文件中添加
---------------
+[process.h](https://github.com/Nefertarii/httpweb/blob/main/jsonprocess.h)  		细分服务器的每次操作
 
-[localinfo.h](https://github.com/Nefertarii/httpweb/blob/main/localinfo.h)    暂用本地文件代替mysql读取信息
--------------
+[record.h](https://github.com/Nefertarii/httpweb/blob/main/localinfo.h)    		将有函数用于记录每次操作
 
+[serverprocess.h](https://github.com/Nefertarii/httpweb/blob/main/localinfo.h)    	服务器所有操作都在此中进行修改
+
+[serverror.h](https://github.com/Nefertarii/httpweb/blob/main/localinfo.h)    		服务器的出错码
+
+[servhead.h](https://github.com/Nefertarii/httpweb/blob/main/localinfo.h)    		修改后的Socket函数以及其他需要使用的函数
