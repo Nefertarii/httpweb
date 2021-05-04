@@ -187,67 +187,63 @@ int serv::Readfile(CLIENT *cli)
     cli->get()->remaining += filestat_.st_size;
     return 1;
 }
-//传输本次info中的数据
+//传输指定数据
 //成功返回1 失败返回0/-1  0=写未完成 需要再次执行   -1=出错 需关闭连接
 int serv::HTTPwrite(std::string info, int sockfd)
 {
     const char *tmp_char = info.c_str();
-    int n = 0; //记录信号阻塞次数 防止卡住
-    while (1)
+    int num = 0; //记录信号阻塞次数 防止卡住
+AGAIN:
+    if (num > 10)
+        return 0;
+    if (write(sockfd, tmp_char, strlen(tmp_char)) < 0)
     {
-        if (n > 10)
-            return 0;
-        if (write(sockfd, tmp_char, strlen(tmp_char)) < 0)
+        if (errno == EINTR)
         {
-            if (errno == EINTR)
-            {
-                std::cout << "signal interruption." << std::endl;
-                n++;
-                continue; //signal interruption
-            }
-            else if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                return 0; //kernel cache full
-            }
-            else
-            {
-                serv::err_sys("Write error:");
-                return -1; //another error
-            }
+            std::cout << "signal interruption." << std::endl;
+            num++;
+            goto AGAIN; //signal interruption
         }
-        return 1;
+        else if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+            return 0; //kernel cache full
+        }
+        else
+        {
+            serv::err_sys("Write error:");
+            return -1; //another error
+        }
     }
+    return 1;
 }
 //在cli中读取保存的本地文件fd 利用系统函数sendfile读取并发送该文件
 //成功返回1 失败返回0/-1   0=写未完成 需要再次执行   -1=出错 需关闭连接
 int serv::Writefile(off_t offset, int remaining, int sockfd, int filefd)
 {
     int num = 0;
-    while (1)
+AGIAN:
+    if (num > 10)
+        return 0;
+    int n = sendfile(sockfd, filefd, &offset, WRITE_BUF_SIZE);
+    if (n < 0)
     {
-        if (num > 10)
-            return 0;
-        int n = sendfile(sockfd, filefd, &offset, WRITE_BUF_SIZE);
-        if (n < 0)
+        if (errno == EINTR)
         {
-            if (errno == EINTR)
-            {
-                std::cout << "signal interruption." << std::endl;
-                num++;
-                continue;
-            }
-            else if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                return 0;
-            }
-            else
-            {
-                serv::err_sys("Write error:");
-                return -1;
-            }
+            std::cout << "signal interruption." << std::endl;
+            num++;
+            goto AGAIN;
         }
-        return 1;
+        else if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+            return 0;
+        }
+        else
+        {
+            serv::err_sys("Write error:");
+            return -1;
+        }
     }
+    return 1;
 }
 
 std::string serv::Substr(std::string readbuf, int beg_i, int maxlength, char end_c)
@@ -260,7 +256,7 @@ std::string serv::Substr(std::string readbuf, int beg_i, int maxlength, char end
         end++;
     }
     if (end == 0)
-    { 
+    {
         return "0";
     }
     else if (end <= maxlength)
@@ -282,7 +278,7 @@ std::string serv::Substr_Revers(std::string readbuf, int maxlength, char end_c)
         end++;
     }
     if (end == 0)
-    { 
+    {
         return "0";
     }
     else if (end <= maxlength)

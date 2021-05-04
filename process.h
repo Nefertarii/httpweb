@@ -102,7 +102,7 @@ int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
     std::string location = serv::Substr(cli->get()->readbuf, 6, 100, ' '); //POST=6
-    if (location == "-1") //to long
+    if (location == "-1")                                                  //to long
     {
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
@@ -247,33 +247,31 @@ int WriteProcess::Writehead()
 }
 int WriteProcess::Writefile()
 {
-    for (;;)
+    if (cli->get()->remaining > WRITE_BUF_SIZE)
     {
-        if (cli->get()->remaining > WRITE_BUF_SIZE)
+        int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
+        if (n < 0)
         {
-            int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
-            if (n < 0)
-            {
-                cli->get()->errcode = WRITE_FAIL;
-                return -1;
-            }
-            cli->get()->send += WRITE_BUF_SIZE;
-            cli->get()->remaining -= WRITE_BUF_SIZE;
-            cli->get()->writetime += 1;
+            cli->get()->errcode = WRITE_FAIL;
+            return -1;
         }
-        else
+        cli->get()->send += WRITE_BUF_SIZE;
+        cli->get()->remaining -= WRITE_BUF_SIZE;
+        cli->get()->writetime += 1;
+        return 1;
+    }
+    else
+    {
+        int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
+        if (n < 0)
         {
-            int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
-            if (n < 0)
-            {
-                cli->get()->errcode = WRITE_FAIL;
-                return -1;
-            }
-            cli->get()->Reset();
-            cli->get()->writetime += 1;
-            cli->get()->status = WRITE_OK;
-            return 1;
+            cli->get()->errcode = WRITE_FAIL;
+            return -1;
         }
+        cli->get()->Reset();
+        cli->get()->writetime += 1;
+        cli->get()->status = WRITE_OK;
+        return 1;
     }
 }
 int WriteProcess::Writeinfo()

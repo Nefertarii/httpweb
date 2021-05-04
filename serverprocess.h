@@ -17,10 +17,11 @@ extern const std::string PAGE403;
 extern const std::string PAGE404;
 
 class Server
-{ //only epoll
+{
 private:
-    int listenfd, epollfd;
+    int listenfd, epollfd, wait;//wait == wait to write or write not over
     std::vector<std::shared_ptr<Clientinfo>> clients;
+    std::vector<WriteProcess> waitwrites;
     struct epoll_event ev, events[MAX_CLI];
     //void Sendfile(Clientinfo *cli);
 public:
@@ -43,10 +44,15 @@ public:
 Server::Server()
 {
     clients.resize(MAX_CLI);
+    waitwrites.resize(MAX_CLI * 5);
     for (int i = 0; i != MAX_CLI; i++)
     {
         clients[i] = std::make_shared<Clientinfo>();
         clients[i]->Reset();
+    }
+    for (int i = 0; i != MAX_CLI * 5; i++)
+    {
+        waitwrites[i].cli->reset();
     }
     signal(SIGPIPE, SIG_IGN);
     epollfd = epoll_create(MAX_CLI);
@@ -88,6 +94,7 @@ void Server::Start()
                             std::cout << "process success.\n"
                                       << "file:" << cli->get()->filename;
                             Epollwrite(cli);
+                            
                         }
                         else //GET process fail
                         {
@@ -99,7 +106,8 @@ void Server::Start()
                     case POST:
                         if (client.POSTprocess())
                         {
-                            std::cout <<"\n"<< cli->get()->readbuf;
+                            std::cout << "\n"
+                                      << cli->get()->readbuf;
                             client.POSTChoess(cli->get()->status);
                             Epollwrite(cli);
                         }
@@ -124,28 +132,24 @@ void Server::Start()
             }
             else if (ev.events & EPOLLOUT)
             {
-                //Socketwrite(ev.data.ptr);
                 CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                 WriteProcess client(cli);
                 std::cout << "\nWrite ";
                 if (cli->get()->status == FILE_READ_OK) //write file
                 {
-                AGAIN:
                     cli->get()->Strstate();
                     if (client.Writehead())
                     {
                         std::cout << "done.  ";
                         cli->get()->Strstate();
-                        if (client.Writefile())
+                        if (client.Writefile() == 1)
                         {
-                            std::cout << "done. write times:"
-                                      << cli->get()->writetime;
-                            Epollread(cli);
-                        }
-                        else if (cli->get()->errcode == WRITE_AGAIN)
-                        {
-                            cli->get()->Strerror();
-                            goto AGAIN;
+                            if (cli->get()->remaining == 0)
+                            {
+                                std::cout << "done. write times:"
+                                          << cli->get()->writetime;
+                                Epollread(cli);
+                            }
                         }
                         else
                         {
@@ -153,11 +157,6 @@ void Server::Start()
                             serv::err_sys(" errno:");
                             Closeclient(cli);
                         }
-                    }
-                    else if (cli->get()->errcode == WRITE_AGAIN)
-                    {
-                        cli->get()->Strerror();
-                        goto AGAIN;
                     }
                     else
                     {
@@ -187,10 +186,6 @@ void Server::Start()
                     std::cout << "error. ";
                     Closeclient(cli);
                 }
-            }
-            else 
-            {
-                ;
             }
         }
     }
