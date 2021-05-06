@@ -4,7 +4,6 @@
 #include "localinfo.h"
 #include "process.h"
 #include "record.h"
-#include <iostream>
 #include <netdb.h>
 #include <signal.h>
 #include <sys/epoll.h>
@@ -19,7 +18,7 @@ extern const std::string PAGE404;
 class Server
 {
 private:
-    int listenfd, epollfd, wait;//wait == wait to write or write not over
+    int listenfd, epollfd, wait; //wait == wait to write or write not over
     std::vector<std::shared_ptr<Clientinfo>> clients;
     std::vector<WriteProcess> waitwrites;
     struct epoll_event ev, events[MAX_CLI];
@@ -44,15 +43,11 @@ public:
 Server::Server()
 {
     clients.resize(MAX_CLI);
-    waitwrites.resize(MAX_CLI * 5);
+    //waitwrites.resize(MAX_CLI);
     for (int i = 0; i != MAX_CLI; i++)
     {
         clients[i] = std::make_shared<Clientinfo>();
         clients[i]->Reset();
-    }
-    for (int i = 0; i != MAX_CLI * 5; i++)
-    {
-        waitwrites[i].cli->reset();
     }
     signal(SIGPIPE, SIG_IGN);
     epollfd = epoll_create(MAX_CLI);
@@ -94,29 +89,23 @@ void Server::Start()
                             std::cout << "process success.\n"
                                       << "file:" << cli->get()->filename;
                             Epollwrite(cli);
-                            
+                            break;
                         }
-                        else //GET process fail
-                        {
-                            cli->get()->Strerror();
-                            BadRequest(404, cli);
-                            Epollwrite(cli);
-                        }
+                        //GET process fail
+                        cli->get()->Strerror();
+                        BadRequest(404, cli);
+                        Epollwrite(cli);
                         break;
                     case POST:
                         if (client.POSTprocess())
                         {
-                            std::cout << "\n"
-                                      << cli->get()->readbuf;
                             client.POSTChoess(cli->get()->status);
                             Epollwrite(cli);
+                            break;
                         }
-                        else
-                        {
-                            cli->get()->Strerror();
-                            Responehead(403, "page403.html", cli);
-                            Epollwrite(cli);
-                        }
+                        cli->get()->Strerror();
+                        BadRequest(403, cli);
+                        Epollwrite(cli);
                         break;
                     default:
                         cli->get()->Strerror();
@@ -134,57 +123,58 @@ void Server::Start()
             {
                 CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                 WriteProcess client(cli);
-                std::cout << "\nWrite ";
-                if (cli->get()->status == FILE_READ_OK) //write file
+                std::cout << "\n";
+                int head = client.Writehead();
+                if (head >= 1)
                 {
-                    cli->get()->Strstate();
-                    if (client.Writehead())
+                    if (head > 1)
+                        ;
+                    else
+                        std::cout << "Write head... done.  ";
+                }
+                if (head < 1)
+                {
+                    cli->get()->Strerror();
+                    Closeclient(cli);
+                }
+                switch (cli->get()->status)
+                {
+                case WRITE_FILE:
+                    if (client.Writefile())
                     {
-                        std::cout << "done.  ";
-                        cli->get()->Strstate();
-                        if (client.Writefile() == 1)
+                        if (cli->get()->remaining == 0)
                         {
-                            if (cli->get()->remaining == 0)
-                            {
-                                std::cout << "done. write times:"
-                                          << cli->get()->writetime;
-                                Epollread(cli);
-                            }
+                            /*std::cout << "done. write times:"
+                                      << cli->get()->writetime;*/
+                            Epollread(cli);
                         }
-                        else
+                        else if (cli->get()->remaining > 0)
                         {
-                            cli->get()->Strerror();
-                            serv::err_sys(" errno:");
-                            Closeclient(cli);
+                            Epollwrite(cli);
+                            cli->get()->status = WRITE_FILE;
                         }
+                        break;
                     }
                     else
                     {
-                        std::cout << "fail. ";
                         cli->get()->Strerror();
+                        serv::err_sys(" errno:");
                         Closeclient(cli);
+                        break;
                     }
-                }
-                else if (cli->get()->info.length() > 0) //write info(json ...)
-                {
-                    std::cout << "info. ";
-                    client.Writehead();
+                case WRITE_INFO:
                     client.Writeinfo();
                     if (cli->get()->errcode == WRITE_INFO_FAIL)
                     {
                         Closeclient(cli);
+                        break;
                     }
-                    else
-                    {
-                        Epollread(cli);
-                    }
-                }
-                else //error
-                {
-                    std::cout << cli->get()->info;
-                    client.Writehead();
+                    Epollread(cli);
+                    break;
+                default:
                     std::cout << "error. ";
                     Closeclient(cli);
+                    break;
                 }
             }
         }

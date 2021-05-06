@@ -4,6 +4,7 @@
 #include <ctime>
 #include <memory>
 #include <string>
+#include <iostream>
 #include "serverror.h"
 
 #define StatusOK 200           //200 读取成功且合法
@@ -91,19 +92,23 @@ struct Clientinfo
     }
     const char * Strerror(int codenum)
     {
+        std::cout << serverr_map[-codenum % -ERRORLAST];
         return serverr_map[-codenum % -ERRORLAST]; 
     }
     const char * Strerror()
     {
-        return serverr_map[-status % -ERRORLAST]; 
+        std::cout << serverr_map[-errcode % -ERRORLAST]; 
+        return serverr_map[-errcode % -ERRORLAST]; 
     }
     const char * Strstate(int codenum)
     {
-        return servstate_map[codenum % -STATELAST_]; 
+        std::cout << servstate_map[codenum % -STATELAST];
+        return servstate_map[codenum % -STATELAST]; 
     }
     const char * Strstate()
     {
-        return servstate_map[errcode % -STATELAST_]; 
+        std::cout << servstate_map[status % -STATELAST];
+        return servstate_map[status % -STATELAST]; 
     }
     ~Clientinfo() = default;
     //session sockfd在关闭时处理

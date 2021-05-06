@@ -39,6 +39,10 @@ enum HTTP_TYPE
 enum SERV_PROCESS
 {
     SNONE = 0,
+    WRITE_READY,
+    WRITE_HEAD,
+    WRITE_FILE,
+    WRITE_INFO,
     Login,
     Reset,
     Create,
@@ -52,16 +56,15 @@ enum SERV_PROCESS
     POST_INFO_OK,
     POST_LOCATION_OK,
     WRITE_OK,
-    WRITE_FILE_OK,
     Login_OK,
     Reset_OK,
     Create_OK,
     Vote_Up_OK,
-    VOte_Down_OK,
+    Vote_Down_OK,
     Comment_OK,
     Content_OK,
     Readcount_OK,
-    STATELAST_ = (1 << 30)
+    STATELAST = (1 << 30)
 };
 
 const char *serverr_map[] =
@@ -90,14 +93,18 @@ const char *serverr_map[] =
 
 const char *servstate_map[] =
 {
-    [SNONE]                    = "Undefine Server state error",  
-    [Login]                    = "Now login...",
-    [Reset]                    = "Now reset password...",
-    [Create]                   = "Now create account...",
-    [Vote_Up]                  = "Now vote up...",
-    [Vote_Down]                = "Now vote down...",
-    [Comment]                  = "Now comment...",
-    [Content]                  = "Now content...",
-    [Readcount]                = "Readcount add..."
+    [SNONE]                    = "Undefine Server state. ",  
+    [WRITE_READY]              = "Ready to write. ",
+    [WRITE_HEAD]               = "Send head now... ",
+    [WRITE_FILE]               = "Send file now... ",
+    [WRITE_INFO]               = "Send info now... ",
+    [Login]                    = "Now login... ",
+    [Reset]                    = "Now reset password... ",
+    [Create]                   = "Now create account... ",
+    [Vote_Up]                  = "Now vote up... ",
+    [Vote_Down]                = "Now vote down... ",
+    [Comment]                  = "Now comment... ",
+    [Content]                  = "Now content... ",
+    [Readcount]                = "Readcount add... "
 };
 #endif

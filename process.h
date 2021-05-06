@@ -89,7 +89,7 @@ int ReadProcess::GETprocess()
     if (n == 1)
     { //¶ÁÈ¡³É¹¦
         Responehead(200, filedir, cli);
-        cli->get()->status = FILE_READ_OK;
+        cli->get()->status = WRITE_FILE;
         return 1;
     }
     else
@@ -119,6 +119,7 @@ int ReadProcess::POSTprocess()
         cli->get()->errcode = POST_INFO_ERROR;
         return -1;
     }
+    cli->get()->status = WRITE_INFO;
     return 1;
 }
 int ReadProcess::POSTChoess(std::string method)
@@ -231,6 +232,8 @@ int ReadProcess::POSTLogin()
 int WriteProcess::Writehead()
 {
     int n = serv::HTTPwrite(cli->get()->httphead, cli->get()->sockfd);
+    if (n > 1)
+        return 2;
     if (n <= 0)
     {
         if (n == 0)
@@ -242,7 +245,6 @@ int WriteProcess::Writehead()
         return -1;
     }
     cli->get()->httphead.clear();
-    cli->get()->status = WRITE_OK;
     return 1;
 }
 int WriteProcess::Writefile()
@@ -257,7 +259,6 @@ int WriteProcess::Writefile()
         }
         cli->get()->send += WRITE_BUF_SIZE;
         cli->get()->remaining -= WRITE_BUF_SIZE;
-        cli->get()->writetime += 1;
         return 1;
     }
     else
@@ -269,7 +270,6 @@ int WriteProcess::Writefile()
             return -1;
         }
         cli->get()->Reset();
-        cli->get()->writetime += 1;
         cli->get()->status = WRITE_OK;
         return 1;
     }

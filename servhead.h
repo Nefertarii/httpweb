@@ -191,6 +191,8 @@ int serv::Readfile(CLIENT *cli)
 //成功返回1 失败返回0/-1  0=写未完成 需要再次执行   -1=出错 需关闭连接
 int serv::HTTPwrite(std::string info, int sockfd)
 {
+    if(info.length() == 0)
+        return 2;
     const char *tmp_char = info.c_str();
     int num = 0; //记录信号阻塞次数 防止卡住
 AGAIN:
@@ -221,7 +223,7 @@ AGAIN:
 int serv::Writefile(off_t offset, int remaining, int sockfd, int filefd)
 {
     int num = 0;
-AGIAN:
+AGAIN:
     if (num > 10)
         return 0;
     int n = sendfile(sockfd, filefd, &offset, WRITE_BUF_SIZE);
