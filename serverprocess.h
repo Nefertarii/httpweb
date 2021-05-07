@@ -123,14 +123,15 @@ void Server::Start()
             {
                 CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                 WriteProcess client(cli);
-                std::cout << "\n";
                 int head = client.Writehead();
                 if (head >= 1)
                 {
                     if (head > 1)
                         ;
                     else
-                        std::cout << "Write head... done.  ";
+                    {
+                        std::cout << "\nWrite head... done.  ";
+                    }
                 }
                 if (head < 1)
                 {
@@ -144,8 +145,6 @@ void Server::Start()
                     {
                         if (cli->get()->remaining == 0)
                         {
-                            /*std::cout << "done. write times:"
-                                      << cli->get()->writetime;*/
                             Epollread(cli);
                         }
                         else if (cli->get()->remaining > 0)

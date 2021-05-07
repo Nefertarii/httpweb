@@ -119,7 +119,7 @@ int ReadProcess::POSTprocess()
         cli->get()->errcode = POST_INFO_ERROR;
         return -1;
     }
-    cli->get()->status = WRITE_INFO;
+    cli->get()->status = Login;
     return 1;
 }
 int ReadProcess::POSTChoess(std::string method)
@@ -160,7 +160,7 @@ int ReadProcess::POSTChoess(SERV_PROCESS method)
             cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
             cli->get()->remaining = cli->get()->info.length();
             Responehead(200, "login.js", cli);
-            cli->get()->status = Login_OK;
+            cli->get()->status = WRITE_INFO;
             return 1; //³É¹¦²Ù×÷
         }
         cli->get()->info = "{\"session\":\"fail\"}";
@@ -258,6 +258,7 @@ int WriteProcess::Writefile()
             return -1;
         }
         cli->get()->send += WRITE_BUF_SIZE;
+        cli->get()->writetime += 1;
         cli->get()->remaining -= WRITE_BUF_SIZE;
         return 1;
     }
@@ -270,6 +271,7 @@ int WriteProcess::Writefile()
             return -1;
         }
         cli->get()->Reset();
+        cli->get()->writetime += 1;
         cli->get()->status = WRITE_OK;
         return 1;
     }

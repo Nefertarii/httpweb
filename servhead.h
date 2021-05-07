@@ -16,8 +16,8 @@
 enum CONST_DEFINE
 {
     OPEN_MAX = 64,
-    READ_BUF_SIZE = 8 * 1024,
-    WRITE_BUF_SIZE = 2 * 1024,
+    READ_BUF_SIZE = 16 * 1024,
+    WRITE_BUF_SIZE = 16 * 1024,
     SERV_PORT = 80,
     MAXEVENTS = 50,
     TIMEOUT = 0,
