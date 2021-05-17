@@ -9,7 +9,7 @@ enum SERV_ERR
     Readcount_Fail = -3,
     Vote_Down_Fail = -4,
     Vote_Up_Fail = -5,
-    Create_Fail = -6,
+    Register_Fail = -6,
     Reset_Fail = -7,
     Login_Fail = -8,
     WRITE_FAIL = -9,    
@@ -28,15 +28,7 @@ enum SERV_ERR
     ERRORLAST = -(1 << 30),
 };
 
-enum HTTP_TYPE
-{
-    ERROR = -1,
-    HNONE,
-    GET,
-    POST,
-};
-
-enum SERV_PROCESS
+enum SERV_STATE
 {
     SNONE = 0,
     WRITE_READY,
@@ -45,7 +37,7 @@ enum SERV_PROCESS
     WRITE_INFO,
     Login,
     Reset,
-    Create,
+    Register,
     Vote_Up,
     Vote_Down,
     Comment,
@@ -58,7 +50,7 @@ enum SERV_PROCESS
     WRITE_OK,
     Login_OK,
     Reset_OK,
-    Create_OK,
+    Register_OK,
     Vote_Up_OK,
     Vote_Down_OK,
     Comment_OK,
@@ -67,7 +59,7 @@ enum SERV_PROCESS
     STATELAST = (1 << 30)
 };
 
-const char *serverr_map[] =
+static const char *serverr_map[] =
 {
     [-ENONE]                    = "Undefine Server error. ",
     [-Comment_Fail]             = "Comment fail. ",
@@ -75,7 +67,7 @@ const char *serverr_map[] =
     [-Readcount_Fail]           = "Readcound add fail. ",
     [-Vote_Down_Fail]           = "Vote down fail. ",
     [-Vote_Up_Fail]             = "Vote up fail. ",
-    [-Create_Fail]              = "Create account fail. ",
+    [-Register_Fail]            = "Register account fail. ",
     [-Reset_Fail]               = "Reset account password fail. ",
     [-Login_Fail]               = "Login fail. ",
     [-WRITE_FAIL]               = "Write fail please see system errno. ",
@@ -91,7 +83,7 @@ const char *serverr_map[] =
     [-WRITE_AGAIN]              = "Kernel cache full do again. "
 };
 
-const char *servstate_map[] =
+static const char *servstate_map[] =
 {
     [SNONE]                    = "Undefine Server state. ",  
     [WRITE_READY]              = "Ready to write. ",
@@ -100,11 +92,12 @@ const char *servstate_map[] =
     [WRITE_INFO]               = "Send info now... ",
     [Login]                    = "Now login... ",
     [Reset]                    = "Now reset password... ",
-    [Create]                   = "Now create account... ",
+    [Register]                 = "Now register account... ",
     [Vote_Up]                  = "Now vote up... ",
     [Vote_Down]                = "Now vote down... ",
     [Comment]                  = "Now comment... ",
     [Content]                  = "Now content... ",
     [Readcount]                = "Readcount add... "
 };
+
 #endif
