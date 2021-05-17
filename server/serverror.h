@@ -12,20 +12,18 @@ enum SERV_ERR
     Register_Fail = -6,
     Reset_Fail = -7,
     Login_Fail = -8,
-    WRITE_FAIL = -9,    
 
-    WRITE_HEAD_FAIL = -10,
-    WRITE_FILE_FAIL = -11,
-    WRITE_INFO_FAIL = -12,
-    FILE_READ_FAIL = -13,
-    NOT_THIS_FILE = -14,
-    POST_INFO_ERROR = -15,
-    POST_LOCATION_ERROR = -16,
-    SIZE_TO_LARGE = -17,
-    CLIENT_CLOSE = -18,
-    WRITE_AGAIN = -19,
+    WRITE_HEAD_FAIL = -9,
+    WRITE_FILE_FAIL = -10,
+    WRITE_INFO_FAIL = -11,
+    FILE_READ_FAIL = -12,
+    NOT_THIS_FILE = -13,
+    POST_INFO_ERROR = -14,
+    POST_LOCATION_ERROR = -15,
+    SIZE_TO_LARGE = -16,
+    CLIENT_CLOSE = -17,
 
-    ERRORLAST = -(1 << 30),
+    ERRORLAST = -(1 << 30)
 };
 
 enum SERV_STATE
@@ -35,6 +33,8 @@ enum SERV_STATE
     WRITE_HEAD,
     WRITE_FILE,
     WRITE_INFO,
+    WRITE_AGAIN,
+    WRITE_FAIL,
     Login,
     Reset,
     Register,
@@ -70,7 +70,6 @@ static const char *serverr_map[] =
     [-Register_Fail]            = "Register account fail. ",
     [-Reset_Fail]               = "Reset account password fail. ",
     [-Login_Fail]               = "Login fail. ",
-    [-WRITE_FAIL]               = "Write fail please see system errno. ",
     [-WRITE_HEAD_FAIL]          = "Write head fail please see system errno. ",
     [-WRITE_FILE_FAIL]          = "Write file fail please see system errno. ",
     [-WRITE_INFO_FAIL]          = "Write info fail please see system errno. ",
@@ -79,8 +78,7 @@ static const char *serverr_map[] =
     [-POST_INFO_ERROR]          = "Post info too long or not set. ",
     [-POST_LOCATION_ERROR]      = "Post location error. ",
     [-SIZE_TO_LARGE]            = "Read size to large. ",
-    [-CLIENT_CLOSE]             = "Read/Write fail, client close. ",
-    [-WRITE_AGAIN]              = "Kernel cache full do again. "
+    [-CLIENT_CLOSE]             = "Read/Write fail, client close. "
 };
 
 static const char *servstate_map[] =
@@ -90,6 +88,8 @@ static const char *servstate_map[] =
     [WRITE_HEAD]               = "Send head now... ",
     [WRITE_FILE]               = "Send file now... ",
     [WRITE_INFO]               = "Send info now... ",
+    [WRITE_AGAIN]              = "Ernel cache full do again. ",
+    [WRITE_FAIL]               = "Write fail please see system errno. ",
     [Login]                    = "Now login... ",
     [Reset]                    = "Now reset password... ",
     [Register]                 = "Now register account... ",

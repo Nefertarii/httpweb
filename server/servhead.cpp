@@ -81,12 +81,12 @@ const char *Clientinfo::Strerror()
 const char *Clientinfo::Strstate(int codenum)
 {
     //std::cout << servstate_map[codenum % -STATELAST];
-    return servstate_map[codenum % -STATELAST];
+    return servstate_map[codenum % STATELAST];
 }
 const char *Clientinfo::Strstate()
 {
     //std::cout << servstate_map[status % -STATELAST];
-    return servstate_map[status % -STATELAST];
+    return servstate_map[status % STATELAST];
 }
 
 int serv::Socket(int family, int type, int protocol)
@@ -272,7 +272,7 @@ AGAIN:
     }
     return 1;
 }
-//在cli中读取保存的本地文件fd 利用系统函数sendfile读取并发送该文件
+//利用系统函数sendfile发送该文件
 //成功返回1 失败返回0/-1   0=写未完成 需要再次执行   -1=出错 需关闭连接
 int serv::Writefile(off_t offset, int remaining, int sockfd, int filefd)
 {
@@ -306,21 +306,21 @@ std::string serv::Substr(std::string readbuf, int beg_i, int maxlength, char end
 {
     int beg = beg_i, end = 0;
     while (end <= maxlength)
-    { //开始读取要求的文件位置直至遇到到指定字符结束
+    { //found end_c set index;
         if (readbuf[end + beg] == end_c)
             break;
         end++;
     }
     if (end == 0)
-    {
+    { //not found
         return "0";
     }
     else if (end <= maxlength)
-    { //截取文件名
+    { //return substring
         return readbuf.substr(beg, end);
     }
     else
-    { //文件地址要求过长
+    { //length > maxlength
         return "-1";
     }
 }
@@ -328,7 +328,7 @@ std::string serv::Substr_Revers(std::string readbuf, int maxlength, char end_c)
 {
     int beg = readbuf.length(), end = 0;
     while (end <= maxlength)
-    { //开始读取要求的文件位置直至遇到到指定字符结束
+    { 
         if (readbuf[beg - end] == end_c)
             break;
         end++;
@@ -338,11 +338,11 @@ std::string serv::Substr_Revers(std::string readbuf, int maxlength, char end_c)
         return "0";
     }
     else if (end <= maxlength)
-    { //截取文件名
+    { 
         return readbuf.substr(beg - end + 1, end);
     }
     else
-    { //文件地址要求过长
+    { 
         return "-1";
     }
 }

@@ -1,6 +1,6 @@
 #include "servprocess.h"
+#include "../database/database.h"
 #include "../record/record.h"
-//#include "../database/database.h"
 
 const std::string DATADIR = "/home/ftp_dir/Webserver/Data/";
 const std::string PAGE400 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html";
@@ -11,7 +11,6 @@ const std::string PAGE404 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page404.html
 Server::Server()
 {
     clients.resize(MAX_CLI);
-    //waitwrites.resize(MAX_CLI);
     for (int i = 0; i != MAX_CLI; i++)
     {
         clients[i] = std::make_shared<Clientinfo>();
@@ -45,16 +44,15 @@ void Server::Start()
             {
                 CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                 ReadProcess client(cli);
-                std::cout << "\nRead... ";
-                if (client.Read())
+                client.Read();
+                if (cli->get()->status == HTTP_READ_OK)
                 {
-                    std::cout << "OK. ";
                     switch (cli->get()->httptype)
                     {
                     case GET:
                         if (client.GETprocess())
                         {
-                            std::cout << "process success.\n"
+                            std::cout << "Read process success.\n"
                                       << "file:" << cli->get()->filename;
                             Epollwrite(cli);
                             break;
@@ -83,63 +81,76 @@ void Server::Start()
                 }
                 else
                 {
-                    cli->get()->Strerror();
-                    Closeclient(cli);
+                    if (cli->get()->errcode == CLIENT_CLOSE)
+                    {
+                        std::cout << cli->get()->Strerror() << std::endl;
+                        Closeclient(cli);
+                    }
+                    else
+                    {
+                        std::cout << cli->get()->Strerror() << std::endl;
+                        BadRequest(400, cli);
+                    }
                 }
             }
             else if (ev.events & EPOLLOUT)
             {
                 CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                 WriteProcess client(cli);
-                int head = client.Writehead();
-                if (head >= 1)
-                {
-                    if (head > 1)
-                        ;
-                    else
-                    {
-                        std::cout << "\nWrite head... done.  ";
-                    }
-                }
-                if (head < 1)
-                {
-                    cli->get()->Strerror();
-                    Closeclient(cli);
-                }
+                client.Writehead();
                 switch (cli->get()->status)
                 {
                 case WRITE_FILE:
-                    if (client.Writefile())
+                    client.Writefile();
+                    switch (cli->get()->status)
                     {
-                        if (cli->get()->remaining == 0)
-                        {
-                            Epollread(cli);
-                        }
-                        else if (cli->get()->remaining > 0)
-                        {
-                            Epollwrite(cli);
-                            cli->get()->status = WRITE_FILE;
-                        }
+                    case WRITE_OK:
+                        std::cout << cli->get()->Strstate() << std::endl;
+                        cli->get()->Reset();
+                        Epollread(cli);
                         break;
-                    }
-                    else
-                    {
-                        cli->get()->Strerror();
-                        serv::Sys_err(" errno:");
+                    case WRITE_AGAIN:
+                        std::cout << cli->get()->Strstate() << std::endl;
+                        Epollwrite(cli);
+                        break;
+                    case WRITE_FAIL:
+                        std::cout << cli->get()->Strstate() << std::endl;
+                        Closeclient(cli);
+                        break;
+                    default:
+                        std::cout << cli->get()->Strstate() << std::endl;
                         Closeclient(cli);
                         break;
                     }
+                    break;
                 case WRITE_INFO:
                     client.Writeinfo();
-                    if (cli->get()->errcode == WRITE_INFO_FAIL)
+                    switch (cli->get()->status)
                     {
+                    case WRITE_OK:
+                        std::cout << cli->get()->Strstate() << std::endl;
+                        cli->get()->Reset();
+                        Epollread(cli);
+                        break;
+                    case WRITE_AGAIN:
+                        std::cout << cli->get()->Strstate() << std::endl;
+                        Epollwrite(cli);
+                        break;
+                    case WRITE_FAIL:
+                        std::cout << cli->get()->Strstate() << std::endl;
+                        Closeclient(cli);
+                        break;
+                    default:
+                        std::cout << cli->get()->Strstate() << std::endl;
                         Closeclient(cli);
                         break;
                     }
-                    Epollread(cli);
+                    break;
+                case WRITE_AGAIN:
+                    Epollwrite(cli);
                     break;
                 default:
-                    std::cout << "error. ";
+                    std::cout << cli->get()->Strerror();
                     Closeclient(cli);
                     break;
                 }

@@ -9,11 +9,9 @@
 class Server
 {
 private:
-    int listenfd, epollfd, wait; //wait == wait to write or write not over
+    int listenfd, epollfd;
     std::vector<std::shared_ptr<Clientinfo>> clients;
-    std::vector<WriteProcess> waitwrites;
     struct epoll_event ev, events[MAX_CLI];
-    //void Sendfile(Clientinfo *cli);
 public:
     Server();
     void Start();

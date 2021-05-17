@@ -27,7 +27,7 @@ int ReadProcess::GETprocess()
     std::string filedir = HTMLDIR; //先添加文件的位置
     std::string filename;
     filename = serv::Substr(cli->get()->readbuf, 5, 100, ' '); //GET begin for 5
-    if (filename == "0")
+    if (filename == "0") //default
     {
         filename = "index.html";
     }
@@ -41,10 +41,9 @@ int ReadProcess::GETprocess()
     //std::cout << "\n[" << cli->get()->filename << "]\n";
     int n = serv::Readfile(cli);
     if (n == 1)
-    { //读取成功
+    { //read success
         cli->get()->httphead = Responehead(200, filedir, cli->get()->remaining);
         cli->get()->remaining += cli->get()->httphead.length();
-        cli->get()->status = WRITE_FILE;
         return 1;
     }
     else
@@ -113,7 +112,7 @@ int ReadProcess::POSTChoess(SERV_STATE method)
         {
             cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
             cli->get()->remaining = cli->get()->info.length();
-            cli->get()->httphead = Responehead(200, "login.js",cli->get()->remaining);
+            cli->get()->httphead = Responehead(200, "login.js", cli->get()->remaining);
             cli->get()->remaining += cli->get()->httphead.length();
             cli->get()->status = WRITE_INFO;
             return 1; //成功操作
@@ -192,16 +191,22 @@ int ReadProcess::POSTRegister()
 int WriteProcess::Writehead()
 {
     int n = serv::HTTPwrite(cli->get()->httphead, cli->get()->sockfd);
-    if (n > 1)
-        return 2;
+    if (n >= 1)
+    {
+        if (cli->get()->filefd > 0)
+            cli->get()->status = WRITE_FILE;
+        else if(cli->get()->info.length() > 0)
+            cli->get()->status = WRITE_INFO;
+    }
     if (n <= 0)
     {
         if (n == 0)
         {
-            cli->get()->errcode = WRITE_AGAIN;
+            cli->get()->status = WRITE_AGAIN;
             return 0;
         }
-        cli->get()->errcode = WRITE_FAIL;
+        cli->get()->status = WRITE_FAIL;
+        cli->get()->errcode = WRITE_HEAD_FAIL;
         return -1;
     }
     cli->get()->httphead.clear();
@@ -212,69 +217,77 @@ int WriteProcess::Writefile()
     if (cli->get()->remaining > WRITE_BUF_SIZE)
     {
         int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
-        if (n < 0)
+        if (n <= 0)
         {
-            cli->get()->errcode = WRITE_FAIL;
+            if (n == 0)
+            {
+                cli->get()->status = WRITE_AGAIN;
+                return 0;
+            }
+            cli->get()->status = WRITE_FAIL;
             return -1;
         }
         cli->get()->send += WRITE_BUF_SIZE;
-        cli->get()->writetime += 1;
+        cli->get()->writetime++;
         cli->get()->remaining -= WRITE_BUF_SIZE;
-        return 1;
+        cli->get()->status = WRITE_AGAIN;
+        return 0;
     }
     else
     {
         int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
-        if (n < 0)
+        if (n <= 0)
         {
-            cli->get()->errcode = WRITE_FAIL;
+            if (n == 0)
+            {
+                cli->get()->status = WRITE_AGAIN;
+                return 0;
+            }
+            cli->get()->status = WRITE_FAIL;
             return -1;
         }
-        cli->get()->Reset();
-        cli->get()->writetime += 1;
+        cli->get()->writetime++;
         cli->get()->status = WRITE_OK;
         return 1;
     }
 }
 int WriteProcess::Writeinfo()
 {
-    for (;;)
+    if (cli->get()->remaining > WRITE_BUF_SIZE)
     {
-        if (cli->get()->remaining > WRITE_BUF_SIZE)
+        int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
+        if (n <= 0)
         {
-            int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
-            if (n <= 0)
+            if (n == 0)
             {
-                if (n == 0)
-                {
-                    cli->get()->errcode = WRITE_AGAIN;
-                    return 0;
-                }
-                cli->get()->errcode = WRITE_FAIL;
-                return -1;
+                cli->get()->status = WRITE_AGAIN;
+                return 0;
             }
-            cli->get()->send += WRITE_BUF_SIZE;
-            cli->get()->remaining -= WRITE_BUF_SIZE;
-            cli->get()->writetime++;
+            cli->get()->status = WRITE_FAIL;
+            return -1;
         }
-        else
+        cli->get()->send += WRITE_BUF_SIZE;
+        cli->get()->remaining -= WRITE_BUF_SIZE;
+        cli->get()->writetime++;
+        return 0;
+    }
+    else
+    {
+        int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
+        if (n <= 0)
         {
-            int n = serv::HTTPwrite(cli->get()->info, cli->get()->sockfd);
-            if (n <= 0)
+            if (n == 0)
             {
-                if (n == 0)
-                {
-                    cli->get()->errcode = WRITE_AGAIN;
-                    return 0;
-                }
-                cli->get()->errcode = WRITE_FAIL;
-                return -1;
+                cli->get()->status = WRITE_AGAIN;
+                return 0;
             }
-            cli->get()->Reset();
-            cli->get()->writetime += 1;
-            cli->get()->status = WRITE_OK;
-            return 1;
+            cli->get()->status = WRITE_FAIL;
+            return -1;
         }
+        cli->get()->Reset();
+        cli->get()->writetime++;
+        cli->get()->status = WRITE_OK;
+        return 1;
     }
 }
 
