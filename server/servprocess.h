@@ -1,5 +1,5 @@
-#ifndef SERVPROCESSED_H_
-#define SERVPROCESSED_H_
+#ifndef SERVPROCESS_H_
+#define SERVPROCESS_H_
 
 #include "process.h"
 #include <vector>
