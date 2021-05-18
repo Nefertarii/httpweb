@@ -1,5 +1,4 @@
 #include "servprocess.h"
-#include "../database/database.h"
 #include "../record/record.h"
 
 const std::string DATADIR = "/home/ftp_dir/Webserver/Data/";
@@ -44,33 +43,43 @@ void Server::Start()
             {
                 CLIENT *cli = static_cast<std::shared_ptr<Clientinfo> *>(ev.data.ptr);
                 ReadProcess client(cli);
-                client.Read();
-                if (cli->get()->status == HTTP_READ_OK)
+                if (client.Read())
                 {
                     switch (cli->get()->httptype)
                     {
                     case GET:
-                        if (client.GETprocess())
+                        client.GETprocess();
+                        if (cli->get()->status == READ_FAIL)
                         {
-                            std::cout << "Read process success.\n"
-                                      << "file:" << cli->get()->filename;
+                            cli->get()->Strerror();
+                            BadRequest(404, cli);
                             Epollwrite(cli);
                             break;
                         }
-                        //GET process fail
-                        cli->get()->Strerror();
-                        BadRequest(404, cli);
+                        std::cout << "Method:GET process success.\n"
+                                  << "File:" << cli->get()->filename << "\n";
                         Epollwrite(cli);
                         break;
                     case POST:
-                        if (client.POSTprocess())
+                        client.POSTprocess();
+                        if (cli->get()->status == READ_FAIL)
                         {
-                            client.POSTChoess(cli->get()->status);
+                            cli->get()->Strerror();
+                            BadRequest(403, cli);
                             Epollwrite(cli);
                             break;
                         }
-                        cli->get()->Strerror();
-                        BadRequest(403, cli);
+                        std::cout << cli->get()->Strstate();
+                        client.POSTChoess(cli->get()->status);
+                        if(cli->get()->status == FAIL)
+                        {
+                            std::cout << cli->get()->Strstate() << " ";
+                            std::cout << cli->get()->Strerror() << "\n";
+                        }
+                        else
+                        {
+                            std::cout << " Success!\n";
+                        }
                         Epollwrite(cli);
                         break;
                     default:
@@ -105,20 +114,23 @@ void Server::Start()
                     switch (cli->get()->status)
                     {
                     case WRITE_OK:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << "\n";
                         cli->get()->Reset();
                         Epollread(cli);
                         break;
                     case WRITE_AGAIN:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << " ";
+                        std::cout << cli->get()->Strerror() << "\n";
                         Epollwrite(cli);
                         break;
                     case WRITE_FAIL:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << " ";
+                        std::cout << cli->get()->Strerror() << "\n";
                         Closeclient(cli);
                         break;
                     default:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << " ";
+                        std::cout << cli->get()->Strerror() << "\n";
                         Closeclient(cli);
                         break;
                     }
@@ -128,25 +140,30 @@ void Server::Start()
                     switch (cli->get()->status)
                     {
                     case WRITE_OK:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << "\n";
                         cli->get()->Reset();
                         Epollread(cli);
                         break;
                     case WRITE_AGAIN:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << " ";
+                        std::cout << cli->get()->Strerror() << "\n";
                         Epollwrite(cli);
                         break;
                     case WRITE_FAIL:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << " ";
+                        std::cout << cli->get()->Strerror() << "\n";
                         Closeclient(cli);
                         break;
                     default:
-                        std::cout << cli->get()->Strstate() << std::endl;
+                        std::cout << cli->get()->Strstate() << " ";
+                        std::cout << cli->get()->Strerror() << "\n";
                         Closeclient(cli);
                         break;
                     }
                     break;
                 case WRITE_AGAIN:
+                    std::cout << cli->get()->Strstate() << " ";
+                    std::cout << cli->get()->Strerror() << "\n";
                     Epollwrite(cli);
                     break;
                 default:
@@ -243,31 +260,31 @@ void Server::BadRequest(int pagecode, CLIENT *cli)
     switch (pagecode)
     {
     case StatusBadRequest: //400
-        Responehead(200, "Page400.html", cli->get()->remaining);
+        Responehead(200, "Page400.html", cli->get()->bodylength);
         cli->get()->remaining += cli->get()->httphead.length();
         cli->get()->filename = PAGE400;
         serv::Readfile(cli);
         break;
     case StatusUnauthorized: //401
-        Responehead(200, "Page401.html", cli->get()->remaining);
+        Responehead(200, "Page401.html", cli->get()->bodylength);
         cli->get()->remaining += cli->get()->httphead.length();
         cli->get()->filename = PAGE401;
         serv::Readfile(cli);
         break;
     case StatusForbidden: //403
-        Responehead(200, "Page403.html", cli->get()->remaining);
+        Responehead(200, "Page403.html", cli->get()->bodylength);
         cli->get()->remaining += cli->get()->httphead.length();
         cli->get()->filename = PAGE403;
         serv::Readfile(cli);
         break;
     case StatusNotFound: //404
-        Responehead(200, "Page404.html", cli->get()->remaining);
+        Responehead(200, "Page404.html", cli->get()->bodylength);
         cli->get()->remaining += cli->get()->httphead.length();
         cli->get()->filename = PAGE404;
         serv::Readfile(cli);
         break;
     default: //404
-        Responehead(200, "Page404.html", cli->get()->remaining);
+        Responehead(200, "Page404.html", cli->get()->bodylength);
         cli->get()->remaining += cli->get()->httphead.length();
         cli->get()->filename = PAGE404;
         serv::Readfile(cli);

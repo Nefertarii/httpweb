@@ -22,19 +22,22 @@ enum SERV_ERR
     POST_LOCATION_ERROR = -15,
     SIZE_TO_LARGE = -16,
     CLIENT_CLOSE = -17,
-
+    ERNEL_CACHE_FULL = -18,
     ERRORLAST = -(1 << 30)
 };
 
 enum SERV_STATE
 {
     SNONE = 0,
+    FAIL,
     WRITE_READY,
     WRITE_HEAD,
     WRITE_FILE,
     WRITE_INFO,
     WRITE_AGAIN,
     WRITE_FAIL,
+    READ_FAIL,
+    WRITE_OK,
     Login,
     Reset,
     Register,
@@ -43,19 +46,6 @@ enum SERV_STATE
     Comment,
     Content,
     Readcount,
-    HTTP_READ_OK,
-    FILE_READ_OK,
-    POST_INFO_OK,
-    POST_LOCATION_OK,
-    WRITE_OK,
-    Login_OK,
-    Reset_OK,
-    Register_OK,
-    Vote_Up_OK,
-    Vote_Down_OK,
-    Comment_OK,
-    Content_OK,
-    Readcount_OK,
     STATELAST = (1 << 30)
 };
 
@@ -77,27 +67,31 @@ static const char *serverr_map[] =
     [-NOT_THIS_FILE]            = "Not this file. ",
     [-POST_INFO_ERROR]          = "Post info too long or not set. ",
     [-POST_LOCATION_ERROR]      = "Post location error. ",
-    [-SIZE_TO_LARGE]            = "Read size to large. ",
-    [-CLIENT_CLOSE]             = "Read/Write fail, client close. "
+    [-SIZE_TO_LARGE]            = "Size to large. ",
+    [-CLIENT_CLOSE]             = "Read/Write fail, client close. ",
+    [-ERNEL_CACHE_FULL]         = "Ernel cache full do again. "
 };
 
 static const char *servstate_map[] =
 {
     [SNONE]                    = "Undefine Server state. ",  
+    [FAIL]                     = "Process fail",
     [WRITE_READY]              = "Ready to write. ",
     [WRITE_HEAD]               = "Send head now... ",
     [WRITE_FILE]               = "Send file now... ",
     [WRITE_INFO]               = "Send info now... ",
-    [WRITE_AGAIN]              = "Ernel cache full do again. ",
-    [WRITE_FAIL]               = "Write fail please see system errno. ",
-    [Login]                    = "Now login... ",
-    [Reset]                    = "Now reset password... ",
-    [Register]                 = "Now register account... ",
-    [Vote_Up]                  = "Now vote up... ",
-    [Vote_Down]                = "Now vote down... ",
-    [Comment]                  = "Now comment... ",
-    [Content]                  = "Now content... ",
-    [Readcount]                = "Readcount add... "
+    [WRITE_AGAIN]              = "Write again:",
+    [WRITE_FAIL]               = "Write fail:",
+    [READ_FAIL]                = "Read fail:",
+    [WRITE_OK]                 = "Write done.",
+    [Login]                    = "Login",
+    [Reset]                    = "Reset password",
+    [Register]                 = "Register account",
+    [Vote_Up]                  = "Vote up",
+    [Vote_Down]                = "Vote down",
+    [Comment]                  = "Comment",
+    [Content]                  = "Content",
+    [Readcount]                = "Readcount add"
 };
 
 #endif

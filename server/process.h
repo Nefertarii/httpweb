@@ -2,6 +2,7 @@
 #define PROCESS_H_
 
 #include "servhead.h"
+#include "../database/database.h"
 
 class ReadProcess
 {

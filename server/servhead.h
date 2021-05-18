@@ -37,6 +37,7 @@ struct Clientinfo
     HTTP_TYPE httptype;
     int writetime;
     int remaining;
+    int bodylength;
     int send;
     int filefd;
     int sockfd;
@@ -70,7 +71,7 @@ namespace serv
     int HTTPread(int sockfd, std::string *str);
     int Readfile(CLIENT *cli);
     int HTTPwrite(std::string info, int sockfd);
-    int Writefile(off_t offset, int remaining, int sockfd, int filefd);
+    int Writefile(off_t offset, int sockfd, int filefd);
     std::string Substr(std::string readbuf, int beg_i, int maxlength, char end_c);
     std::string Substr_Revers(std::string readbuf, int maxlength, char end_c);
     HTTP_TYPE HTTPtype(std::string httphead); //≈–∂œ«Î«Û¿‡–Õ

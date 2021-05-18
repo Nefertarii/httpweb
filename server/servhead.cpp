@@ -17,6 +17,7 @@ Clientinfo::Clientinfo()
     httptype = TNONE;
     writetime = 0;
     remaining = 0;
+    bodylength = 0;
     send = 0;
     filefd = 0;
     sockfd = -1;
@@ -33,6 +34,7 @@ Clientinfo::Clientinfo(const Clientinfo &tmp)
     httptype = tmp.httptype;
     writetime = tmp.writetime;
     remaining = tmp.remaining;
+    bodylength = tmp.bodylength;
     send = tmp.send;
     filefd = tmp.filefd;
     sockfd = tmp.sockfd;
@@ -49,6 +51,7 @@ Clientinfo &Clientinfo::operator=(struct Clientinfo &&tmp)
     httptype = tmp.httptype;
     writetime = tmp.writetime;
     remaining = tmp.remaining;
+    bodylength = tmp.bodylength;
     send = tmp.send;
     filefd = tmp.filefd;
     sockfd = tmp.sockfd;
@@ -65,6 +68,7 @@ void Clientinfo::Reset()
     httptype = TNONE;
     writetime = 0;
     remaining = 0;
+    bodylength = 0;
     send = 0;
     filefd = -1;
 }
@@ -239,6 +243,7 @@ int serv::Readfile(CLIENT *cli)
         return -1;
     }
     cli->get()->remaining += filestat_.st_size;
+    cli->get()->bodylength += filestat_.st_size;
     return 1;
 }
 //传输指定数据
@@ -274,7 +279,7 @@ AGAIN:
 }
 //利用系统函数sendfile发送该文件
 //成功返回1 失败返回0/-1   0=写未完成 需要再次执行   -1=出错 需关闭连接
-int serv::Writefile(off_t offset, int remaining, int sockfd, int filefd)
+int serv::Writefile(off_t offset, int sockfd, int filefd)
 {
     int num = 0;
 AGAIN:

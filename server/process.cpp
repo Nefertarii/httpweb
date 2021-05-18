@@ -8,16 +8,17 @@ int ReadProcess::Read()
     if (n == 1)
     { //read success.
         cli->get()->httptype = Httptype(cli->get()->readbuf);
-        cli->get()->status = HTTP_READ_OK;
         return 1;
     }
     else if (n == 0)
     { //read to large.
+        cli->get()->status = READ_FAIL;
         cli->get()->errcode = SIZE_TO_LARGE;
         return -1;
     }
     else
     { //client close
+        cli->get()->status = READ_FAIL;
         cli->get()->errcode = CLIENT_CLOSE;
         return -1;
     }
@@ -27,12 +28,13 @@ int ReadProcess::GETprocess()
     std::string filedir = HTMLDIR; //先添加文件的位置
     std::string filename;
     filename = serv::Substr(cli->get()->readbuf, 5, 100, ' '); //GET begin for 5
-    if (filename == "0") //default
+    if (filename == "0")                                       //default
     {
         filename = "index.html";
     }
     if (filename == "-1")
     {
+        cli->get()->status = READ_FAIL;
         cli->get()->errcode = NOT_THIS_FILE;
         return -1;
     }
@@ -42,12 +44,13 @@ int ReadProcess::GETprocess()
     int n = serv::Readfile(cli);
     if (n == 1)
     { //read success
-        cli->get()->httphead = Responehead(200, filedir, cli->get()->remaining);
+        cli->get()->httphead = Responehead(200, filedir, cli->get()->bodylength);
         cli->get()->remaining += cli->get()->httphead.length();
         return 1;
     }
     else
     { //open/stat出错
+        cli->get()->status = READ_FAIL;
         cli->get()->errcode = FILE_READ_FAIL;
         return -1;
     }
@@ -56,24 +59,26 @@ int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
     std::string location = serv::Substr(cli->get()->readbuf, 6, 100, ' '); //POST=6
-    if (location == "-1")                                                  //to long
+    if (location == "-1" || location == "0")                               //to long
     {
+        cli->get()->status = READ_FAIL;
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
     if (POSTChoess(location) < 0) //post type error
     {
+        cli->get()->status = READ_FAIL;
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
     //获取数据.
     cli->get()->info = serv::Substr_Revers(cli->get()->readbuf, 200, '\n');
-    if (cli->get()->info == "-1")
+    if (cli->get()->info == "-1" || cli->get()->info == "0")
     { //数据过长或没有设置
+        cli->get()->status = READ_FAIL;
         cli->get()->errcode = POST_INFO_ERROR;
         return -1;
     }
-    cli->get()->status = Login;
     return 1;
 }
 int ReadProcess::POSTChoess(std::string method)
@@ -96,7 +101,7 @@ int ReadProcess::POSTChoess(std::string method)
         cli->get()->status = Readcount;
     else
     {
-        cli->get()->status = SNONE;
+        cli->get()->status = FAIL;
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
@@ -107,19 +112,22 @@ int ReadProcess::POSTChoess(SERV_STATE method)
     switch (method)
     {
     case Login:
-        cli->get()->Strstate();
         if (POSTLogin())
         {
             cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
-            cli->get()->remaining = cli->get()->info.length();
-            cli->get()->httphead = Responehead(200, "login.js", cli->get()->remaining);
+            cli->get()->remaining += cli->get()->info.length();
+            cli->get()->bodylength += cli->get()->info.length();
+            cli->get()->httphead = Responehead(200, "login.js", cli->get()->bodylength);
             cli->get()->remaining += cli->get()->httphead.length();
             cli->get()->status = WRITE_INFO;
             return 1; //成功操作
         }
         cli->get()->info = "{\"session\":\"fail\"}";
-        cli->get()->httphead = Responehead(200, "login.js", cli->get()->remaining);
+        cli->get()->remaining += cli->get()->info.length();
+        cli->get()->bodylength += cli->get()->info.length();
+        cli->get()->httphead = Responehead(200, "login.js", cli->get()->bodylength);
         cli->get()->remaining += cli->get()->httphead.length();
+        cli->get()->status = FAIL;
         cli->get()->errcode = Login_Fail;
         return -1; //失败操作 返回后直接进入写状态
     case Reset:
@@ -195,7 +203,7 @@ int WriteProcess::Writehead()
     {
         if (cli->get()->filefd > 0)
             cli->get()->status = WRITE_FILE;
-        else if(cli->get()->info.length() > 0)
+        else if (cli->get()->info.length() > 0)
             cli->get()->status = WRITE_INFO;
     }
     if (n <= 0)
@@ -203,6 +211,7 @@ int WriteProcess::Writehead()
         if (n == 0)
         {
             cli->get()->status = WRITE_AGAIN;
+            cli->get()->errcode = ERNEL_CACHE_FULL;
             return 0;
         }
         cli->get()->status = WRITE_FAIL;
@@ -216,12 +225,13 @@ int WriteProcess::Writefile()
 {
     if (cli->get()->remaining > WRITE_BUF_SIZE)
     {
-        int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
+        int n = serv::Writefile(cli->get()->send, cli->get()->sockfd, cli->get()->filefd);
         if (n <= 0)
         {
             if (n == 0)
             {
                 cli->get()->status = WRITE_AGAIN;
+                cli->get()->errcode = ERNEL_CACHE_FULL;
                 return 0;
             }
             cli->get()->status = WRITE_FAIL;
@@ -231,16 +241,18 @@ int WriteProcess::Writefile()
         cli->get()->writetime++;
         cli->get()->remaining -= WRITE_BUF_SIZE;
         cli->get()->status = WRITE_AGAIN;
+        cli->get()->errcode = SIZE_TO_LARGE;
         return 0;
     }
     else
     {
-        int n = serv::Writefile(cli->get()->send, cli->get()->remaining, cli->get()->sockfd, cli->get()->filefd);
+        int n = serv::Writefile(cli->get()->send, cli->get()->sockfd, cli->get()->filefd);
         if (n <= 0)
         {
             if (n == 0)
             {
                 cli->get()->status = WRITE_AGAIN;
+                cli->get()->errcode = ERNEL_CACHE_FULL;
                 return 0;
             }
             cli->get()->status = WRITE_FAIL;
@@ -261,6 +273,7 @@ int WriteProcess::Writeinfo()
             if (n == 0)
             {
                 cli->get()->status = WRITE_AGAIN;
+                cli->get()->errcode = ERNEL_CACHE_FULL;
                 return 0;
             }
             cli->get()->status = WRITE_FAIL;
@@ -279,6 +292,7 @@ int WriteProcess::Writeinfo()
             if (n == 0)
             {
                 cli->get()->status = WRITE_AGAIN;
+                
                 return 0;
             }
             cli->get()->status = WRITE_FAIL;
@@ -289,21 +303,4 @@ int WriteProcess::Writeinfo()
         cli->get()->status = WRITE_OK;
         return 1;
     }
-}
-
-//返回验证码
-//根据状态码不同写入不同的json
-void Jsonprocess(int state, CLIENT *cli)
-{
-    //判断 find name 成功 添加json
-    if (state)
-    {
-        cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
-    }
-    //失败
-    else
-    {
-        cli->get()->info = "{\"session\":\"fail\"}";
-    }
-    cli->get()->remaining += cli->get()->info.length();
 }
