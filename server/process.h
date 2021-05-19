@@ -14,13 +14,6 @@ public:
     int Read();
     int GETprocess();
     int POSTprocess();
-    int POSTLogin();
-    int POSTReset();
-    int POSTRegister();
-    int POSTVote();
-    int POSTComment();
-    int POSTContent();
-    int POSTReadcount();
     int POSTChoess(SERV_STATE method);
     int POSTChoess(std::string method);
     std::string Serverstate(int state);

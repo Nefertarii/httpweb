@@ -1,4 +1,5 @@
 #include "process.h"
+#include <iostream>
 
 const std::string HTMLDIR = "/home/ftp_dir/Webserver/Blog/";
 
@@ -58,8 +59,10 @@ int ReadProcess::GETprocess()
 int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
-    std::string location = serv::Substr(cli->get()->readbuf, 6, 100, ' '); //POST=6
-    if (location == "-1" || location == "0")                               //to long
+    std::string location_ = serv::Substr(cli->get()->readbuf, 5, 100, ' '); //POST=6
+    std::string location = serv::Substr_Revers(location_, 10, '/');
+    std::cout << "location:" << location << "\n";
+    if (location == "-1" || location == "0") //to long
     {
         cli->get()->status = READ_FAIL;
         cli->get()->errcode = POST_LOCATION_ERROR;
@@ -112,7 +115,13 @@ int ReadProcess::POSTChoess(SERV_STATE method)
     switch (method)
     {
     case Login:
-        if (POSTLogin())
+    {
+        std::string username = serv::Substr(cli->get()->info, 0, 50, '&');
+        std::string password = serv::Substr_Revers(cli->get()->info, 20, '&');
+        int n = 0;
+        //从数据库获取
+        n = Mysqloperation::Mysqllogin(username, password);
+        if (n == 1)
         {
             cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
             cli->get()->remaining += cli->get()->info.length();
@@ -130,71 +139,81 @@ int ReadProcess::POSTChoess(SERV_STATE method)
         cli->get()->status = FAIL;
         cli->get()->errcode = Login_Fail;
         return -1; //失败操作 返回后直接进入写状态
+    }
     case Reset:
+    {
         /* code */
         //POSTReset();
         break;
+    }
     case Register:
-        /* code */
-        //POSTRegister();
-        break;
+    {
+        std::string username = serv::Substr(cli->get()->info, 0, 50, '&');
+        std::string password = serv::Substr_Revers(cli->get()->info, 20, '&');
+        int beg = username.length() + 1;
+        int length = cli->get()->info.length() - password.length() - beg - 1;
+        std::string email = cli->get()->info.substr(beg, length);
+        int n = 0;
+        //数据库注册
+        n = Mysqloperation::Mysqlregister(username, email, password);
+        if (n == 1)
+        {
+            //std::cout << "username:" << username << "email:" << email << "password:" << password << "\n";
+            cli->get()->info = "{\"status\":\"success\"}";
+            cli->get()->remaining += cli->get()->info.length();
+            cli->get()->bodylength += cli->get()->info.length();
+            cli->get()->httphead = Responehead(200, "login.js", cli->get()->bodylength);
+            cli->get()->remaining += cli->get()->httphead.length();
+            cli->get()->status = WRITE_INFO;
+            return 1; //成功操作
+        }
+        cli->get()->info = "{\"status\":\"fail\"}";
+        cli->get()->remaining += cli->get()->info.length();
+        cli->get()->bodylength += cli->get()->info.length();
+        cli->get()->httphead = Responehead(200, "login.js", cli->get()->bodylength);
+        cli->get()->remaining += cli->get()->httphead.length();
+        cli->get()->status = FAIL;
+        cli->get()->errcode = Register_Fail;
+        return -1;
+    }
     case Vote_Up:
+    {
         /* code */
         //POSTVote();
         break;
+    }
     case Vote_Down:
+    {
         /* code */
         //POSTVote();
         break;
+    }
     case Comment:
+    {
         /* code */
         //POSTComment();
         break;
+    }
     case Content:
+    {
         /* code */
         //POSTContent();
         break;
+    }
     case Readcount:
+    {
         /* code */
         //POSTReadcount();
         break;
+    }
     default:
+    {
         /* code */
         cli->get()->errcode = POST_LOCATION_ERROR;
         return -1;
     }
+    }
     return -1;
-}
-int ReadProcess::POSTLogin()
-{
-    //对数据进行截取、判断
-    //成功返回1 否则返回-1
-    std::string username = serv::Substr(cli->get()->info, 0, 50, '&');
-    std::string password = serv::Substr_Revers(cli->get()->info, 20, '&');
-    //从数据库获取
-
-    if (username == "123" && password == "123")
-    {
-        return 1;
-    }
-    /*
-    else if (username.length() > MAX_USERNAME || password.length() > MAX_PASSWORD)
-    {
-        return -1;
-    }
-    else if (username.length() == 0 || password.length() == 0)
-    {
-        return -1;
-    }
-    */
-    cli->get()->errcode = Login_Fail;
-    cli->get()->status = SNONE;
-    cli->get()->Strerror();
-    return -1;
-}
-int ReadProcess::POSTRegister()
-{
-    return 1;
 }
 int WriteProcess::Writehead()
 {
@@ -292,7 +311,7 @@ int WriteProcess::Writeinfo()
             if (n == 0)
             {
                 cli->get()->status = WRITE_AGAIN;
-                
+
                 return 0;
             }
             cli->get()->status = WRITE_FAIL;

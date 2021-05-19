@@ -69,16 +69,18 @@ void Server::Start()
                             Epollwrite(cli);
                             break;
                         }
-                        std::cout << cli->get()->Strstate();
+                        std::cout << "Method:POST process success.\n"
+                                  << cli->get()->Strstate() << ":";
                         client.POSTChoess(cli->get()->status);
                         if(cli->get()->status == FAIL)
                         {
                             std::cout << cli->get()->Strstate() << " ";
                             std::cout << cli->get()->Strerror() << "\n";
+                            cli->get()->status = WRITE_INFO;
                         }
                         else
                         {
-                            std::cout << " Success!\n";
+                            std::cout << "Success!\n";
                         }
                         Epollwrite(cli);
                         break;
