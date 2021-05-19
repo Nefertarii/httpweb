@@ -16,7 +16,7 @@
 //std::list<mysqlx::Row> rows = result.fetchAll();
 
 //mysql operator
-struct Mysqloperation
+namespace Mysqloperation
 {
     int Mysqllogin(std::string account_, std::string password_);
     int Mysqlregister(std::string username_, std::string useremail_, std::string password_);
