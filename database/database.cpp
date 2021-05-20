@@ -9,7 +9,7 @@ static const std::string MYSQLPASSWORD = "GUOWUCHENG1";
 
 //判断使用什么方式登录并验证
 //成功返回1 失败返回-1
-int Mysqloperation::Mysqllogin(std::string account_, std::string password_)
+std::string Mysqloperation::Mysqllogin(std::string account_, std::string password_)
 {
     try
     {
@@ -23,7 +23,7 @@ int Mysqloperation::Mysqllogin(std::string account_, std::string password_)
             {
                 try
                 {
-                    result = mysession.sql("SELECT User_name,User_password "
+                    result = mysession.sql("SELECT User_name,User_password,User_ID "
                                            "FROM User_Data "
                                            "WHERE User_name = '" +
                                            account_ + "'")
@@ -31,16 +31,16 @@ int Mysqloperation::Mysqllogin(std::string account_, std::string password_)
                 }
                 catch (const mysqlx::Error &err)
                 {
-                    std::cerr << "\nMySQL Error\n";
-                    std::cerr << "SQL syntax error. " << '\n';
-                    return -1;
+                    std::cerr << "\nMySQL Error\n"
+                              << err << '\n';
+                    return "error";
                 }
             }
             else //use email login
             {
                 try
                 {
-                    result = mysession.sql("SELECT User_email,User_password "
+                    result = mysession.sql("SELECT User_email,User_password,User_ID "
                                            "FROM User_Data "
                                            "WHERE User_email = '" +
                                            account_ + "'")
@@ -48,9 +48,9 @@ int Mysqloperation::Mysqllogin(std::string account_, std::string password_)
                 }
                 catch (const mysqlx::Error &err)
                 {
-                    std::cerr << "\nMySQL Error\n";
-                    std::cerr << "SQL syntax error. " << '\n';
-                    return -1;
+                    std::cerr << "\nMySQL Error\n"
+                              << err << '\n';
+                    return "error";
                 }
             }
             std::list<mysqlx::Row> rows = result.fetchAll();
@@ -60,25 +60,46 @@ int Mysqloperation::Mysqllogin(std::string account_, std::string password_)
                 {
                     if (it[1] == password)
                     {
-                        return 1;
+                        try
+                        {
+                            int userid_ = it[2].get<int>();
+                            std::string userid = std::to_string(userid_);
+                            result = mysession.sql("SELECT User_image "
+                                                   "FROM User_Data "
+                                                   "WHERE User_ID = '" +
+                                                   userid + "'")
+                                         .execute();
+                        }
+                        catch (const mysqlx::Error &err)
+                        {
+                            std::cerr << "\nMySQL Error\n"
+                                      << err << '\n';
+                            return "error1";
+                        }
+                        std::list<mysqlx::Row> rows = result.fetchAll();
+                        for (auto it : rows)
+                        {
+                            std::string image = it[0].get<std::string>();
+                            return image;
+                        }
                     }
                 }
-                return -1;
+                return "error";
             }
-            return -1;
+            return "error";
         }
         catch (const mysqlx::Error &err)
         {
-            std::cerr << "\nMySQL Error\n";
-            std::cerr << "not this database. " << err << '\n';
-            return -1;
+            std::cerr << "\nMySQL Error\n"
+                      << err << '\n';
+            return "error";
         }
     }
     catch (const mysqlx::Error &err)
     {
-        std::cerr << "\nMySQL Error\n";
-        std::cerr << "databases connect fail. " << err << '\n';
-        return -1;
+        std::cerr << "\nMySQL Error\n"
+                  << err << '\n';
+        return "error";
     }
 }
 int Mysqloperation::Mysqlregister(std::string username_, std::string useremail_, std::string password_)

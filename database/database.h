@@ -18,7 +18,7 @@
 //mysql operator
 namespace Mysqloperation
 {
-    int Mysqllogin(std::string account_, std::string password_);
+    std::string Mysqllogin(std::string account_, std::string password_);
     int Mysqlregister(std::string username_, std::string useremail_, std::string password_);
 };
 
