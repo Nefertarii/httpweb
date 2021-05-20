@@ -3,6 +3,7 @@
 
 #include "servhead.h"
 #include "../database/database.h"
+#include "../database/jsonprocess.h"
 
 class ReadProcess
 {

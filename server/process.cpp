@@ -118,12 +118,11 @@ int ReadProcess::POSTChoess(SERV_STATE method)
     {
         std::string username = serv::Substr(cli->get()->info, 0, 50, '&');
         std::string password = serv::Substr_Revers(cli->get()->info, 20, '&');
-        int n = 0;
-        //从数据库获取
-        n = Mysqloperation::Mysqllogin(username, password);
-        if (n == 1)
+        std::string image = Mysqloperation::Mysqllogin(username, password);
+        if (image != "error")
         {
-            cli->get()->info = "{\"Name\":\"gwc\",\"Age\":\"20\",\"session\":\"success\"}";
+            std::initializer_list<std::string> json = {"username", username, "image", image, "session", "success"};
+            cli->get()->info = JsonSpliced(json);
             cli->get()->remaining += cli->get()->info.length();
             cli->get()->bodylength += cli->get()->info.length();
             cli->get()->httphead = Responehead(200, "login.js", cli->get()->bodylength);
