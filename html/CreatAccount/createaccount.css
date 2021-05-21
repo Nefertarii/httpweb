@@ -73,7 +73,8 @@ dt {
 }
 
 .input {
-	max-width: 20rem;
+	max-width: 22rem;
+	min-width: 22rem;
 }
 
 .input_error:before {
@@ -166,6 +167,7 @@ dt {
 
 .verify {
 	display: flex;
+	height: 3.75rem;
 }
 .left {
 	width: 45%;
@@ -173,7 +175,10 @@ dt {
 .right {
 	float: right;
 	margin-left: 10%;
-	width: 45%;
+	max-width: 10rem;
+	min-width: 10rem;
+	background-size: 80%;
+	background-repeat: no-repeat;
 	background-image: none;
 }
 	

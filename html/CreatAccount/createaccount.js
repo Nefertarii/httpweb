@@ -8,49 +8,24 @@ var emailInput = document.getElementsByClassName("input_email");
 var emailLabel = document.getElementById("input_error_email");
 var passwdInput = document.getElementsByClassName("input_passwd");
 var passwdLabel = document.getElementById("input_error_passwd");
+var verifyInput = document.getElementById("input_ver");
 var submit_button = document.getElementById('input_submit');
-var verification_code = document.getElementsByClassName("input_verify");
-var verification_img = document.getElementsByClassName("right");
+
 var name = "false";
 var email = "false";
 var passwd = "false";
-var i = 0;
-var requeset = new XMLHttpRequest();
-//var tmp = Math.floor(Math.random() * 100);
-//var url = "url('../Image/verification/" + tmp + ".png')";
-document.onreadystatechange = function() {
-	if (document.readyState == "complete") {
-		requeset.open("POST", "../verification");
-		requeset.send();
-	} else {
-		document.body.style.display = "none";
-	};
-};
-
-//verification_img[0].style.backgroundImage
-
 
 nameInput[0].addEventListener("keydown", NameDetect);
 emailInput[0].addEventListener("keydown", EmailDetect);
 passwdInput[0].addEventListener("keydown", PasswdDetect);
-verification_code[0].addEventListener("mousemove", GetVerificationCode);
-addEventListener("keydown", yanzhengma);
-addEventListener("mousemove", yanzhengma);
-//submit_button.addEventListener("mouseover",yanzhengma);
-
-
+verifyInput.addEventListener("keydown", SubmitDetect);
 
 function NameDetect() {
 	nameLabel.style.visibility = "hidden";
 	nameInput[0].style.backgroundImage = "url('../Image/gif/delay-16px.gif')";
 	setTimeout(inline, 500);
-
 	function inline() {
 		if (8 <= nameInput[0].value.length) {
-
-
-
-
 			nameLabel.style.visibility = "visible";
 			nameLabel.innerHTML = "用户名 " + nameInput[0].value + " 可以使用";
 			nameLabel.className = "input_success";
@@ -80,7 +55,6 @@ function EmailDetect() {
 	setTimeout(inline, 500);
 	var STATE = "none";
 	var pattern = /^([A-Za-z0-9_\-\.])+\@([A-Za-z0-9_\-\.])+\.([A-Za-z]{2,4})$/;
-
 	function inline() {
 		if (true == pattern.test(emailInput[0].value)) {
 			emailLabel.style.visibility = "hidden";
@@ -107,7 +81,6 @@ function EmailDetect() {
 function PasswdDetect() {
 	passwdInput[0].style.backgroundImage = "url('../Image/gif/delay-16px.gif')";
 	setTimeout(inline, 500);
-
 	function inline() {
 		if (8 <= passwdInput[0].value.length) {
 			passwdLabel.style.color = "#34d058";
@@ -127,25 +100,59 @@ function PasswdDetect() {
 	}
 }
 
-function GetVerificationCode() {
-	if (i === 0) {
-		requeset.open("GET", "verification_code");
-		i = 1;
-	} else {
-		console.log(i);
-	}
-}
-
-
-function yanzhengma() {
-	//if (name && email && passwd) {
-	//	submit = false;
-	//} 
-	if (name === "true" && email === "true" && passwd === "true") {
+function SubmitDetect() {
+	let register_verify = document.getElementById("input_ver").value;
+	console.log(register_verify);
+	if (name === "true" && email === "true" && passwd === "true" && register_verify === str_random) {
 		submit_button.disabled = false;
 		submit_button.className = "input_submit_true";
 	} else {
 		submit_button.disabled = true;
 		submit_button.className = "input_submit_false";
 	}
+}
+
+
+var verification = document.getElementById("verification");
+var random = Math.floor(Math.random() * 100);
+var str_random;
+//verification.style.backgroundImage = "url(verification/" + random + ".png)";
+var requeset = new XMLHttpRequest();
+document.onreadystatechange = function() {
+	if (document.readyState == "complete") {
+		requeset.open("POST", "verification", true);
+		requeset.send(random);
+	};
+};
+requeset.onreadystatechange = function() {
+	if (requeset.readyState == 4 && requeset.status == 200) {
+		var returnObj = eval("(" + requeset.responseText + ")");
+		verification.style.backgroundImage = "url(verification/" + returnObj.random + ".png)";
+		str_random = returnObj.random;
+		console.log(str_random);
+	}
+}
+
+
+
+var register = new XMLHttpRequest();
+var register_name = document.getElementById("username").value;
+var register_email = document.getElementById("email").value;
+var register_passwd = document.getElementById("password").value;
+var register_verify = document.getElementById("input_ver").value;
+var register_button = document.getElementById("input_submit");
+register_button.onclick = function() {
+	let register_name = document.getElementById("username").value;
+	let register_email = document.getElementById("email").value;
+	let register_passwd = document.getElementById("password").value;
+	var tmp = register_name + "&" + register_email + "&" + register_passwd;
+	register.open("POST", "register", true);
+	register.send(tmp);
+}
+submit_button.onclick = function() {
+	let login_name = document.getElementById("username").value;
+	let login_passwd = document.getElementById("password").value;
+	var register_value = login_name + "&" + login_passwd;
+	login.open("POST", "login", true);
+	login.send(register_value);
 }
