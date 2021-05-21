@@ -5,14 +5,22 @@ const std::string PAGE400 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html
 const std::string PAGE401 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page401.html";
 const std::string PAGE403 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page403.html";
 const std::string PAGE404 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page404.html";
+const std::string VERDIR = "/home/ftp_dir/Webserver/Blog/CreateAccount/verification";
 
 Server::Server()
 {
     clients.resize(MAX_CLI);
+    serv::Get_all_files(VERDIR, serv::VERcode);
+    std::cout << "Get Verifycode num:" << serv::VERcode.size() << "\n";
+    for(auto i:serv::VERcode)
+    {
+        std::cout << i << "\n";
+    }
     for (int i = 0; i != MAX_CLI; i++)
     {
         clients[i] = std::make_shared<Clientinfo>();
         clients[i]->Reset();
+        clients[i]->verifi = serv::VERcode[serv::Random(99)];
     }
     signal(SIGPIPE, SIG_IGN);
     epollfd = epoll_create(MAX_CLI);
@@ -71,7 +79,7 @@ void Server::Start()
                         std::cout << "Method:POST process success.\n"
                                   << cli->get()->Strstate() << ":";
                         client.POSTChoess(cli->get()->status);
-                        if(cli->get()->status == FAIL)
+                        if (cli->get()->status == FAIL)
                         {
                             std::cout << cli->get()->Strstate() << " ";
                             std::cout << cli->get()->Strerror() << "\n";

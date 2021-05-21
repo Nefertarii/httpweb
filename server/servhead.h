@@ -4,12 +4,13 @@
 #include "httphead.h"
 #include "serverror.h"
 #include <arpa/inet.h>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
-#include <cstring>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <vector>
 
 enum CONST_DEFINE
 {
@@ -35,6 +36,8 @@ struct Clientinfo
     SERV_STATE status; //next step do what
     SERV_ERR errcode;  //error set
     HTTP_TYPE httptype;
+    std::string verifi; //Verificode
+    std::string cookie;
     int writetime;
     int remaining;
     int bodylength;
@@ -67,14 +70,16 @@ namespace serv
     void Setreuseaddr(int fd);
     void Setnoblocking(int fd);
     void Setbuffer(int fd);
-    int Ramdom();
+    int Random(int num);
     int HTTPread(int sockfd, std::string *str);
     int Readfile(CLIENT *cli);
     int HTTPwrite(std::string info, int sockfd);
     int Writefile(off_t offset, int sockfd, int filefd);
     std::string Substr(std::string readbuf, int beg_i, int maxlength, char end_c);
     std::string Substr_Revers(std::string readbuf, int maxlength, char end_c);
-    HTTP_TYPE HTTPtype(std::string httphead); //判断请求类型
+    HTTP_TYPE HTTPtype(std::string httphead);                                   //判断请求类型
+    int Get_all_files(const std::string dir_, std::vector<std::string> &files); //初始化时获取验证码
+    static std::vector<std::string> VERcode;
 }
 
 #endif

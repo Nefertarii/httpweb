@@ -1,4 +1,5 @@
 #include "servhead.h"
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <random>
@@ -173,11 +174,11 @@ void serv::Setbuffer(int fd)
         serv::Sys_err("setsockopt(SO_SNDBUF) error:");
     }
 }
-int serv::Ramdom()
+int serv::Random(int num)
 {
     std::random_device rd;
     std::mt19937 mt(rd());
-    return mt() % 100;
+    return mt() % num;
 }
 HTTP_TYPE serv::HTTPtype(std::string httphead)
 {
@@ -333,7 +334,7 @@ std::string serv::Substr_Revers(std::string readbuf, int maxlength, char end_c)
 {
     int beg = readbuf.length(), end = 0;
     while (end <= maxlength)
-    { 
+    {
         if (readbuf[beg - end] == end_c)
             break;
         end++;
@@ -343,11 +344,51 @@ std::string serv::Substr_Revers(std::string readbuf, int maxlength, char end_c)
         return "0";
     }
     else if (end <= maxlength)
-    { 
+    {
         return readbuf.substr(beg - end + 1, end);
     }
     else
-    { 
+    {
         return "-1";
     }
+}
+
+int serv::Get_all_files(const std::string dir_, std::vector<std::string> &files)
+{
+    std::string dir = dir_;
+    struct stat s;
+    stat(dir.c_str(), &s);
+    if (!S_ISDIR(s.st_mode))
+    {
+        std::cerr << "Protected verification dir\n";
+        exit(1);
+    }
+    DIR *open_dir = opendir(dir.c_str());
+    if (open_dir == nullptr)
+    {
+        std::cerr << "Empty verification dir\n";
+        exit(1);
+    }
+    dirent *p = nullptr;
+    while ((p = readdir(open_dir)) != nullptr)
+    {
+        struct stat st;
+        if (p->d_name[0] != '.')
+        {
+            std::string filedir = dir + std::string("/") + std::string(p->d_name);
+            stat(filedir.c_str(), &st);
+            if (S_ISDIR(st.st_mode))
+            {
+                Get_all_files(filedir, files);
+            }
+            else if (S_ISREG(st.st_mode))
+            {
+                std::string filename = p->d_name;
+                filename = filename.substr(0, 4);
+                files.push_back(filename);
+            }
+        }
+    }
+    closedir(open_dir);
+    return 1;
 }

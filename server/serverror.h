@@ -46,6 +46,7 @@ enum SERV_STATE
     Comment,
     Content,
     Readcount,
+    Verification,
     STATELAST = (1 << 30)
 };
 
@@ -91,7 +92,8 @@ static const char *servstate_map[] =
     [Vote_Down]                = "Vote down",
     [Comment]                  = "Comment",
     [Content]                  = "Content",
-    [Readcount]                = "Readcount add"
+    [Readcount]                = "Readcount add",
+    [Verification]             = "Verification"
 };
 
 #endif

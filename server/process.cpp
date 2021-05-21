@@ -60,7 +60,7 @@ int ReadProcess::POSTprocess()
 {
     //获取位置 位置不同处理方式不同
     std::string location_ = serv::Substr(cli->get()->readbuf, 5, 100, ' '); //POST=6
-    std::string location = serv::Substr_Revers(location_, 10, '/');
+    std::string location = serv::Substr_Revers(location_, 20, '/');
     std::cout << "location:" << location << "\n";
     if (location == "-1" || location == "0") //to long
     {
@@ -102,6 +102,8 @@ int ReadProcess::POSTChoess(std::string method)
         cli->get()->status = Content;
     else if (method == "readcount")
         cli->get()->status = Readcount;
+    else if (method == "verification")
+        cli->get()->status = Verification;
     else
     {
         cli->get()->status = FAIL;
@@ -204,6 +206,18 @@ int ReadProcess::POSTChoess(SERV_STATE method)
         /* code */
         //POSTReadcount();
         break;
+    }
+    case Verification:
+    {
+        int num = serv::Random(99);
+        std::initializer_list<std::string> json = {"random", cli->get()->verifi};
+        cli->get()->info = JsonSpliced(json);
+        cli->get()->remaining += cli->get()->info.length();
+        cli->get()->bodylength += cli->get()->info.length();
+        cli->get()->httphead = Responehead(200, "login.js", cli->get()->bodylength);
+        cli->get()->remaining += cli->get()->httphead.length();
+        cli->get()->status = WRITE_INFO;
+        return 1;
     }
     default:
     {
