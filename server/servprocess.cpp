@@ -1,11 +1,11 @@
 #include "servprocess.h"
 #include "../record/record.h"
 
-const std::string PAGE400 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page400.html";
-const std::string PAGE401 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page401.html";
-const std::string PAGE403 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page403.html";
-const std::string PAGE404 = "/home/ftp_dir/Webserver/Blog/Errorpage/Page404.html";
-const std::string VERDIR = "/home/ftp_dir/Webserver/Blog/CreateAccount/verification";
+const std::string PAGE400 = "/home/gwc/Webserver/Blog/Errorpage/Page400.html";
+const std::string PAGE401 = "/home/gwc/Webserver/Blog/Errorpage/Page401.html";
+const std::string PAGE403 = "/home/gwc/Webserver/Blog/Errorpage/Page403.html";
+const std::string PAGE404 = "/home/gwc/Webserver/Blog/Errorpage/Page404.html";
+const std::string VERDIR = "/home/gwc/Webserver/Blog/CreateAccount/verification";
 
 Server::Server()
 {

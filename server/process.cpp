@@ -1,7 +1,7 @@
 #include "process.h"
 #include <iostream>
 
-const std::string HTMLDIR = "/home/ftp_dir/Webserver/Blog/";
+const std::string HTMLDIR = "/home/gwc/Webserver/Blog/";
 
 int ReadProcess::Read()
 {
