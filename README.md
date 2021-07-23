@@ -49,6 +49,6 @@ mysql版在自行安装了 mysql8.0.25版本及其connecter/c++ 后
 
 ### License
 
-[MIT]() © Richard Littauer
+[MIT](https://github.com/Nefertarii/httpweb/blob/main/LICENSE) © Richard Littauer
 
 
